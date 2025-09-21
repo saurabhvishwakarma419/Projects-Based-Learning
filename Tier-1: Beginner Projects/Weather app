@@ -1,1 +1,253 @@
+import React, { useState, useEffect } from 'react';
+import { Search, MapPin, Thermometer, Droplets, Wind, Eye, Gauge } from 'lucide-react';
 
+const WeatherApp = () => {
+  const [weather, setWeather] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [city, setCity] = useState('');
+  
+  // You'll need to get your API key from https://openweathermap.org/api
+  const API_KEY = 'YOUR_API_KEY_HERE';
+  const BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
+  
+  useEffect(() => {
+    // Get user's location on component mount
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          fetchWeatherByCoords(position.coords.latitude, position.coords.longitude);
+        },
+        () => {
+          // If geolocation fails, fetch weather for a default city
+          fetchWeatherByCity('London');
+        }
+      );
+    } else {
+      fetchWeatherByCity('London');
+    }
+  }, []);
+  
+  const fetchWeatherByCoords = async (lat, lon) => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch(
+        `${BASE_URL}?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Weather data not found');
+      }
+      
+      const data = await response.json();
+      setWeather(data);
+    } catch (err) {
+      setError('Failed to fetch weather data. Please check your API key.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchWeatherByCity = async (cityName) => {
+    if (!cityName.trim()) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch(
+        `${BASE_URL}?q=${cityName}&appid=${API_KEY}&units=metric`
+      );
+      
+      if (!response.ok) {
+        throw new Error('City not found');
+      }
+      
+      const data = await response.json();
+      setWeather(data);
+    } catch (err) {
+      setError(err.message === 'City not found' ? 'City not found' : 'Failed to fetch weather data');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchWeatherByCity(city);
+  };
+  
+  const formatTime = (timestamp) => {
+    return new Date(timestamp * 1000).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+  
+  const getWeatherIcon = (iconCode) => {
+    return `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+  };
+  
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 p-4">
+      <div className="max-w-md mx-auto">
+        <div className="bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl p-6 text-white">
+          <h1 className="text-3xl font-bold text-center mb-6">Weather App</h1>
+          
+          {/* Search Input */}
+          <div className="mb-6">
+            <div className="relative">
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
+                placeholder="Search for a city..."
+                className="w-full bg-white/20 backdrop-blur-sm border border-white/30 rounded-2xl px-4 py-3 pl-12 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
+              />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/70" />
+              <button
+                onClick={handleSearch}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 transition-colors rounded-xl px-4 py-2 text-sm font-medium"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+          
+          {/* Loading State */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="animate-spin w-8 h-8 border-4 border-white/30 border-t-white rounded-full mx-auto"></div>
+              <p className="mt-4 text-white/80">Loading weather data...</p>
+            </div>
+          )}
+          
+          {/* Error State */}
+          {error && (
+            <div className="bg-red-500/20 border border-red-400/30 rounded-2xl p-4 mb-6">
+              <p className="text-center text-red-200">{error}</p>
+              {error.includes('API key') && (
+                <p className="text-center text-red-200 text-sm mt-2">
+                  Get your free API key from <span className="underline">openweathermap.org</span>
+                </p>
+              )}
+            </div>
+          )}
+          
+          {/* Weather Data */}
+          {weather && !loading && (
+            <div className="space-y-6">
+              {/* Main Weather Info */}
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <MapPin className="w-5 h-5 mr-2" />
+                  <h2 className="text-2xl font-semibold">
+                    {weather.name}, {weather.sys.country}
+                  </h2>
+                </div>
+                
+                <div className="flex items-center justify-center mb-4">
+                  <img
+                    src={getWeatherIcon(weather.weather[0].icon)}
+                    alt={weather.weather[0].description}
+                    className="w-20 h-20"
+                  />
+                  <div className="ml-4">
+                    <div className="text-6xl font-light">
+                      {Math.round(weather.main.temp)}°C
+                    </div>
+                    <div className="text-xl capitalize">
+                      {weather.weather[0].description}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-lg text-white/80">
+                  Feels like {Math.round(weather.main.feels_like)}°C
+                </div>
+              </div>
+              
+              {/* Weather Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                  <div className="flex items-center mb-2">
+                    <Thermometer className="w-5 h-5 mr-2" />
+                    <span className="text-sm text-white/80">Min/Max</span>
+                  </div>
+                  <div className="text-xl font-semibold">
+                    {Math.round(weather.main.temp_min)}° / {Math.round(weather.main.temp_max)}°
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                  <div className="flex items-center mb-2">
+                    <Droplets className="w-5 h-5 mr-2" />
+                    <span className="text-sm text-white/80">Humidity</span>
+                  </div>
+                  <div className="text-xl font-semibold">{weather.main.humidity}%</div>
+                </div>
+                
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                  <div className="flex items-center mb-2">
+                    <Wind className="w-5 h-5 mr-2" />
+                    <span className="text-sm text-white/80">Wind Speed</span>
+                  </div>
+                  <div className="text-xl font-semibold">{weather.wind.speed} m/s</div>
+                </div>
+                
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                  <div className="flex items-center mb-2">
+                    <Eye className="w-5 h-5 mr-2" />
+                    <span className="text-sm text-white/80">Visibility</span>
+                  </div>
+                  <div className="text-xl font-semibold">
+                    {weather.visibility ? Math.round(weather.visibility / 1000) : 'N/A'} km
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                  <div className="flex items-center mb-2">
+                    <Gauge className="w-5 h-5 mr-2" />
+                    <span className="text-sm text-white/80">Pressure</span>
+                  </div>
+                  <div className="text-xl font-semibold">{weather.main.pressure} hPa</div>
+                </div>
+                
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                  <div className="flex items-center mb-2">
+                    <div className="w-5 h-5 mr-2 text-yellow-300">☀</div>
+                    <span className="text-sm text-white/80">Sunrise</span>
+                  </div>
+                  <div className="text-lg font-semibold">
+                    {formatTime(weather.sys.sunrise)}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Sunset */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <div className="w-5 h-5 mr-2 text-orange-300">🌅</div>
+                  <span className="text-sm text-white/80">Sunset</span>
+                </div>
+                <div className="text-xl font-semibold">
+                  {formatTime(weather.sys.sunset)}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="text-center mt-6 text-white/60">
+          <p className="text-sm">Weather data provided by OpenWeatherMap</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default WeatherApp;
