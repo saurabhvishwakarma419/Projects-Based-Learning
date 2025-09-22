@@ -1,1 +1,371 @@
+#!/usr/bin/env python3
+"""
+Chat-Bot Application - A Python-based intelligent chatbot
+Author: Chat-Bot Application Team
+Version: 1.0.0
+"""
 
+import re
+import json
+import datetime
+import random
+from typing import Dict, List, Tuple, Optional
+from dataclasses import dataclass, asdict
+from pathlib import Path
+
+@dataclass
+class Message:
+    """Data class for storing chat messages"""
+    timestamp: str
+    user_input: str
+    bot_response: str
+    confidence: float = 0.0
+
+@dataclass
+class ResponsePattern:
+    """Data class for bot response patterns"""
+    patterns: List[str]
+    responses: List[str]
+    category: str
+    usage_count: int = 0
+
+class ChatBot:
+    """
+    Main ChatBot class that handles conversation logic and response generation
+    """
+    
+    def __init__(self, knowledge_base_file: str = "knowledge_base.json"):
+        """Initialize the chatbot with knowledge base"""
+        self.knowledge_base_file = knowledge_base_file
+        self.conversation_history: List[Message] = []
+        self.response_patterns: Dict[str, ResponsePattern] = {}
+        self.user_name: str = "User"
+        self.bot_name: str = "ChatBot"
+        
+        # Load or create knowledge base
+        self.load_knowledge_base()
+        
+        # Initialize default responses if knowledge base is empty
+        if not self.response_patterns:
+            self._initialize_default_responses()
+    
+    def load_knowledge_base(self) -> None:
+        """Load knowledge base from JSON file"""
+        try:
+            kb_path = Path(self.knowledge_base_file)
+            if kb_path.exists():
+                with open(kb_path, 'r', encoding='utf-8') as file:
+                    data = json.load(file)
+                    for key, pattern_data in data.items():
+                        self.response_patterns[key] = ResponsePattern(**pattern_data)
+                print(f"✅ Knowledge base loaded: {len(self.response_patterns)} patterns")
+            else:
+                print("📝 Creating new knowledge base...")
+        except Exception as e:
+            print(f"⚠️ Error loading knowledge base: {e}")
+    
+    def save_knowledge_base(self) -> None:
+        """Save knowledge base to JSON file"""
+        try:
+            data = {}
+            for key, pattern in self.response_patterns.items():
+                data[key] = asdict(pattern)
+            
+            with open(self.knowledge_base_file, 'w', encoding='utf-8') as file:
+                json.dump(data, file, indent=2, ensure_ascii=False)
+            print("💾 Knowledge base saved successfully!")
+        except Exception as e:
+            print(f"⚠️ Error saving knowledge base: {e}")
+    
+    def _initialize_default_responses(self) -> None:
+        """Initialize chatbot with default response patterns"""
+        default_patterns = {
+            "greeting": ResponsePattern(
+                patterns=["hello", "hi", "hey", "good morning", "good afternoon", "good evening"],
+                responses=[
+                    "Hello! How can I help you today?",
+                    "Hi there! What would you like to know?",
+                    "Hey! I'm here to answer your questions.",
+                    "Greetings! How may I assist you?"
+                ],
+                category="social"
+            ),
+            "goodbye": ResponsePattern(
+                patterns=["bye", "goodbye", "see you", "farewell", "exit", "quit"],
+                responses=[
+                    "Goodbye! Have a great day!",
+                    "See you later! Feel free to come back anytime.",
+                    "Farewell! It was nice chatting with you.",
+                    "Take care! Hope I was helpful."
+                ],
+                category="social"
+            ),
+            "help": ResponsePattern(
+                patterns=["help", "what can you do", "commands", "instructions"],
+                responses=[
+                    "I can help you with various queries! Try asking me about:\n• General questions\n• Math calculations\n• Time and date\n• Simple facts\n• Programming concepts",
+                    "I'm here to assist! You can ask me questions and I'll do my best to help.",
+                    "Need help? I can answer questions, provide information, and have conversations with you!"
+                ],
+                category="system"
+            ),
+            "time": ResponsePattern(
+                patterns=["what time", "current time", "time now", "what's the time"],
+                responses=[
+                    f"The current time is: {datetime.datetime.now().strftime('%H:%M:%S')}",
+                    f"Right now it's {datetime.datetime.now().strftime('%I:%M %p')}"
+                ],
+                category="utility"
+            ),
+            "date": ResponsePattern(
+                patterns=["what date", "today's date", "current date", "what day"],
+                responses=[
+                    f"Today's date is: {datetime.datetime.now().strftime('%Y-%m-%d')}",
+                    f"Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}"
+                ],
+                category="utility"
+            ),
+            "name": ResponsePattern(
+                patterns=["what's your name", "who are you", "your name"],
+                responses=[
+                    f"I'm {self.bot_name}, your friendly Python chatbot!",
+                    f"You can call me {self.bot_name}. I'm here to help answer your questions.",
+                    f"I'm {self.bot_name}, a chatbot created to assist you with various queries."
+                ],
+                category="personal"
+            ),
+            "math": ResponsePattern(
+                patterns=["calculate", "math", "plus", "minus", "multiply", "divide", "+", "-", "*", "/"],
+                responses=[
+                    "I can help with basic math! Try asking me something like '5 + 3' or 'what is 10 * 2'",
+                    "Math calculations are one of my specialties! Give me an expression to solve."
+                ],
+                category="calculation"
+            ),
+            "thanks": ResponsePattern(
+                patterns=["thank you", "thanks", "appreciate", "grateful"],
+                responses=[
+                    "You're welcome! Happy to help!",
+                    "My pleasure! Anything else you'd like to know?",
+                    "Glad I could help! Feel free to ask more questions."
+                ],
+                category="social"
+            )
+        }
+        
+        self.response_patterns.update(default_patterns)
+        print("🚀 Default response patterns initialized!")
+    
+    def process_query(self, user_input: str) -> str:
+        """
+        Core Function 1: Process user query and generate appropriate response
+        """
+        if not user_input.strip():
+            return "Please enter a message."
+        
+        user_input = user_input.strip().lower()
+        
+        # Check for math expressions
+        if self._is_math_expression(user_input):
+            response = self._calculate_math(user_input)
+            confidence = 0.9
+        else:
+            # Find best matching response pattern
+            response, confidence = self._find_best_response(user_input)
+        
+        # Log the conversation
+        message = Message(
+            timestamp=datetime.datetime.now().isoformat(),
+            user_input=user_input,
+            bot_response=response,
+            confidence=confidence
+        )
+        self.conversation_history.append(message)
+        
+        return response
+    
+    def add_response_pattern(self, category: str, patterns: List[str], responses: List[str]) -> bool:
+        """
+        Core Function 2: Add new response pattern to the knowledge base
+        """
+        try:
+            if not patterns or not responses:
+                return False
+            
+            # Create unique key for the pattern
+            pattern_key = f"{category}_{len(self.response_patterns)}"
+            
+            # Add new pattern
+            self.response_patterns[pattern_key] = ResponsePattern(
+                patterns=[p.lower().strip() for p in patterns],
+                responses=responses,
+                category=category.lower()
+            )
+            
+            print(f"✅ Added new response pattern for category '{category}'")
+            return True
+        except Exception as e:
+            print(f"❌ Error adding response pattern: {e}")
+            return False
+    
+    def get_conversation_history(self) -> List[Dict]:
+        """
+        Core Function 3: Retrieve conversation history
+        """
+        return [asdict(message) for message in self.conversation_history]
+    
+    def _find_best_response(self, user_input: str) -> Tuple[str, float]:
+        """Find the best matching response for user input"""
+        best_match = None
+        best_score = 0.0
+        
+        for pattern_key, pattern in self.response_patterns.items():
+            score = self._calculate_match_score(user_input, pattern.patterns)
+            if score > best_score:
+                best_score = score
+                best_match = pattern
+        
+        if best_match and best_score > 0.3:  # Minimum confidence threshold
+            # Update usage count
+            best_match.usage_count += 1
+            response = random.choice(best_match.responses)
+            
+            # Handle dynamic responses (like time/date)
+            if "current time" in response or "Right now" in response:
+                response = f"The current time is: {datetime.datetime.now().strftime('%H:%M:%S')}"
+            elif "Today's date" in response or "Today is" in response:
+                response = f"Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}"
+            
+            return response, best_score
+        else:
+            return self._get_fallback_response(user_input), 0.1
+    
+    def _calculate_match_score(self, user_input: str, patterns: List[str]) -> float:
+        """Calculate how well user input matches a pattern"""
+        max_score = 0.0
+        
+        for pattern in patterns:
+            # Exact match
+            if pattern in user_input:
+                score = len(pattern) / len(user_input)
+                max_score = max(max_score, score)
+            
+            # Word-based matching
+            user_words = set(user_input.split())
+            pattern_words = set(pattern.split())
+            common_words = user_words.intersection(pattern_words)
+            
+            if common_words:
+                word_score = len(common_words) / max(len(user_words), len(pattern_words))
+                max_score = max(max_score, word_score * 0.8)
+        
+        return max_score
+    
+    def _is_math_expression(self, text: str) -> bool:
+        """Check if input is a mathematical expression"""
+        math_pattern = r'^[\d\s+\-*/().]+$'
+        return bool(re.match(math_pattern, text.replace(' ', '')))
+    
+    def _calculate_math(self, expression: str) -> str:
+        """Calculate mathematical expressions safely"""
+        try:
+            # Remove any text and keep only math characters
+            clean_expr = re.sub(r'[^0-9+\-*/().\s]', '', expression)
+            
+            # Evaluate safely (basic expressions only)
+            result = eval(clean_expr)
+            return f"The result is: {result}"
+        except:
+            return "Sorry, I couldn't calculate that. Please check your mathematical expression."
+    
+    def _get_fallback_response(self, user_input: str) -> str:
+        """Generate fallback response when no pattern matches"""
+        fallback_responses = [
+            "I'm not sure how to respond to that. Could you try rephrasing?",
+            "That's interesting! I'm still learning about that topic.",
+            "I don't have information about that right now. Can you ask something else?",
+            "Hmm, I'm not familiar with that. Try asking me something else!",
+            f"I heard you say '{user_input}', but I'm not sure how to help with that."
+        ]
+        return random.choice(fallback_responses)
+    
+    def get_statistics(self) -> Dict:
+        """Get chatbot usage statistics"""
+        total_messages = len(self.conversation_history)
+        total_patterns = len(self.response_patterns)
+        
+        category_counts = {}
+        for pattern in self.response_patterns.values():
+            category_counts[pattern.category] = category_counts.get(pattern.category, 0) + 1
+        
+        most_used_patterns = sorted(
+            self.response_patterns.items(),
+            key=lambda x: x[1].usage_count,
+            reverse=True
+        )[:5]
+        
+        return {
+            "total_messages": total_messages,
+            "total_patterns": total_patterns,
+            "categories": category_counts,
+            "most_used_patterns": [(k, v.category, v.usage_count) for k, v in most_used_patterns]
+        }
+
+def main():
+    """Main function to run the chatbot"""
+    print("🤖 Chat-Bot Application Started!")
+    print("="*50)
+    
+    # Initialize chatbot
+    bot = ChatBot()
+    
+    print(f"\nWelcome! I'm {bot.bot_name}, your Python-powered assistant.")
+    print("Type 'help' for assistance, 'stats' for statistics, or 'quit' to exit.")
+    print("-" * 50)
+    
+    while True:
+        try:
+            # Get user input
+            user_input = input(f"\n{bot.user_name}: ").strip()
+            
+            # Check for special commands
+            if user_input.lower() in ['quit', 'exit', 'bye']:
+                response = bot.process_query(user_input)
+                print(f"{bot.bot_name}: {response}")
+                bot.save_knowledge_base()
+                break
+            
+            elif user_input.lower() == 'stats':
+                stats = bot.get_statistics()
+                print(f"\n📊 Chatbot Statistics:")
+                print(f"Total Messages: {stats['total_messages']}")
+                print(f"Total Patterns: {stats['total_patterns']}")
+                print(f"Categories: {', '.join(stats['categories'].keys())}")
+                continue
+            
+            elif user_input.lower().startswith('add pattern'):
+                print("📝 Adding new response pattern:")
+                category = input("Category: ").strip()
+                patterns = input("Patterns (comma-separated): ").split(',')
+                responses = input("Responses (comma-separated): ").split(',')
+                
+                if bot.add_response_pattern(category, patterns, responses):
+                    print("✅ Pattern added successfully!")
+                else:
+                    print("❌ Failed to add pattern.")
+                continue
+            
+            # Process normal queries
+            if user_input:
+                response = bot.process_query(user_input)
+                print(f"{bot.bot_name}: {response}")
+            
+        except KeyboardInterrupt:
+            print(f"\n{bot.bot_name}: Goodbye! Thanks for chatting!")
+            bot.save_knowledge_base()
+            break
+        except Exception as e:
+            print(f"❌ An error occurred: {e}")
+
+if __name__ == "__main__":
+    main()
