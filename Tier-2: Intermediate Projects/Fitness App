@@ -1,1 +1,1356 @@
+# Daily Fitness Email App with HarperDB
+# A comprehensive fitness application that sends personalized workouts via email
 
+import os
+import json
+import smtplib
+import schedule
+import time
+import random
+from datetime import datetime, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+import requests
+from flask import Flask, render_template_string, request, jsonify, redirect, url_for
+import threading
+from dataclasses import dataclass
+from typing import List, Dict, Optional
+import hashlib
+import secrets
+
+# Configuration
+class Config:
+    # HarperDB Configuration
+    HARPERDB_URL = "https://your-instance.harperdbcloud.com"  # Replace with your HarperDB instance
+    HARPERDB_USERNAME = "your_username"  # Replace with your username
+    HARPERDB_PASSWORD = "your_password"  # Replace with your password
+    HARPERDB_SCHEMA = "fitness_app"
+    
+    # Email Configuration
+    SMTP_SERVER = "smtp.gmail.com"
+    SMTP_PORT = 587
+    EMAIL_USERNAME = "your_email@gmail.com"  # Replace with your email
+    EMAIL_PASSWORD = "your_app_password"     # Replace with your app password
+    
+    # App Configuration
+    SECRET_KEY = secrets.token_hex(16)
+    SEND_TIME = "07:00"  # Time to send daily emails (24-hour format)
+
+@dataclass
+class User:
+    id: str
+    email: str
+    name: str
+    fitness_level: str  # beginner, intermediate, advanced
+    goals: List[str]    # weight_loss, muscle_gain, endurance, strength
+    preferences: Dict   # equipment, duration, focus_areas
+    created_at: str
+    last_workout_sent: str
+
+@dataclass
+class Workout:
+    id: str
+    name: str
+    difficulty: str
+    duration: int  # minutes
+    equipment: List[str]
+    exercises: List[Dict]
+    muscle_groups: List[str]
+    calories_burned: int
+
+class HarperDBClient:
+    def __init__(self, url: str, username: str, password: str, schema: str):
+        self.url = url
+        self.username = username
+        self.password = password
+        self.schema = schema
+        self.headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Basic {self._get_auth_token()}'
+        }
+    
+    def _get_auth_token(self):
+        import base64
+        credentials = f"{self.username}:{self.password}"
+        return base64.b64encode(credentials.encode()).decode()
+    
+    def create_schema(self):
+        """Create the database schema if it doesn't exist"""
+        data = {
+            "operation": "create_schema",
+            "schema": self.schema
+        }
+        return self._execute_operation(data)
+    
+    def create_table(self, table: str, hash_attribute: str):
+        """Create a table in the database"""
+        data = {
+            "operation": "create_table",
+            "schema": self.schema,
+            "table": table,
+            "hash_attribute": hash_attribute
+        }
+        return self._execute_operation(data)
+    
+    def insert(self, table: str, records: List[Dict]):
+        """Insert records into a table"""
+        data = {
+            "operation": "insert",
+            "schema": self.schema,
+            "table": table,
+            "records": records
+        }
+        return self._execute_operation(data)
+    
+    def search_by_value(self, table: str, search_attribute: str, search_value: str):
+        """Search for records by a specific attribute value"""
+        data = {
+            "operation": "search_by_value",
+            "schema": self.schema,
+            "table": table,
+            "search_attribute": search_attribute,
+            "search_value": search_value,
+            "get_attributes": ["*"]
+        }
+        return self._execute_operation(data)
+    
+    def sql(self, query: str):
+        """Execute a SQL query"""
+        data = {
+            "operation": "sql",
+            "sql": query
+        }
+        return self._execute_operation(data)
+    
+    def _execute_operation(self, data: Dict):
+        """Execute a HarperDB operation"""
+        try:
+            response = requests.post(self.url, json=data, headers=self.headers)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"HarperDB operation failed: {e}")
+            return {"error": str(e)}
+
+class WorkoutGenerator:
+    def __init__(self):
+        self.workouts_db = self._initialize_workouts()
+    
+    def _initialize_workouts(self):
+        """Initialize workout database with sample workouts"""
+        return {
+            "beginner": [
+                {
+                    "id": "beg_001",
+                    "name": "Morning Energy Boost",
+                    "difficulty": "beginner",
+                    "duration": 15,
+                    "equipment": ["bodyweight"],
+                    "exercises": [
+                        {"name": "Jumping Jacks", "reps": "30 seconds", "sets": 2, "rest": "30 seconds"},
+                        {"name": "Push-ups (modified)", "reps": "8-12", "sets": 2, "rest": "45 seconds"},
+                        {"name": "Bodyweight Squats", "reps": "10-15", "sets": 2, "rest": "45 seconds"},
+                        {"name": "Plank", "reps": "20-30 seconds", "sets": 2, "rest": "30 seconds"},
+                        {"name": "Mountain Climbers", "reps": "20 seconds", "sets": 2, "rest": "40 seconds"}
+                    ],
+                    "muscle_groups": ["full_body"],
+                    "calories_burned": 120
+                },
+                {
+                    "id": "beg_002",
+                    "name": "Gentle Strength Builder",
+                    "difficulty": "beginner",
+                    "duration": 20,
+                    "equipment": ["bodyweight"],
+                    "exercises": [
+                        {"name": "Wall Push-ups", "reps": "10-15", "sets": 3, "rest": "45 seconds"},
+                        {"name": "Chair Squats", "reps": "8-12", "sets": 3, "rest": "45 seconds"},
+                        {"name": "Calf Raises", "reps": "15-20", "sets": 2, "rest": "30 seconds"},
+                        {"name": "Dead Bug", "reps": "5-8 each side", "sets": 2, "rest": "30 seconds"},
+                        {"name": "Standing March", "reps": "30 seconds", "sets": 3, "rest": "30 seconds"}
+                    ],
+                    "muscle_groups": ["legs", "core", "arms"],
+                    "calories_burned": 140
+                }
+            ],
+            "intermediate": [
+                {
+                    "id": "int_001",
+                    "name": "HIIT Power Session",
+                    "difficulty": "intermediate",
+                    "duration": 25,
+                    "equipment": ["bodyweight", "dumbbells"],
+                    "exercises": [
+                        {"name": "Burpees", "reps": "30 seconds", "sets": 3, "rest": "30 seconds"},
+                        {"name": "Push-ups", "reps": "12-15", "sets": 3, "rest": "45 seconds"},
+                        {"name": "Jump Squats", "reps": "15-20", "sets": 3, "rest": "45 seconds"},
+                        {"name": "Dumbbell Rows", "reps": "10-12", "sets": 3, "rest": "45 seconds"},
+                        {"name": "Plank to Push-up", "reps": "8-10", "sets": 3, "rest": "60 seconds"},
+                        {"name": "High Knees", "reps": "30 seconds", "sets": 2, "rest": "30 seconds"}
+                    ],
+                    "muscle_groups": ["full_body"],
+                    "calories_burned": 280
+                },
+                {
+                    "id": "int_002",
+                    "name": "Strength & Cardio Combo",
+                    "difficulty": "intermediate",
+                    "duration": 30,
+                    "equipment": ["dumbbells", "resistance_band"],
+                    "exercises": [
+                        {"name": "Dumbbell Squats", "reps": "12-15", "sets": 3, "rest": "60 seconds"},
+                        {"name": "Push-up to T", "reps": "8-10", "sets": 3, "rest": "60 seconds"},
+                        {"name": "Resistance Band Rows", "reps": "15-20", "sets": 3, "rest": "45 seconds"},
+                        {"name": "Dumbbell Deadlifts", "reps": "10-12", "sets": 3, "rest": "60 seconds"},
+                        {"name": "Mountain Climbers", "reps": "45 seconds", "sets": 3, "rest": "30 seconds"},
+                        {"name": "Russian Twists", "reps": "20-30", "sets": 3, "rest": "45 seconds"}
+                    ],
+                    "muscle_groups": ["legs", "back", "core", "chest"],
+                    "calories_burned": 320
+                }
+            ],
+            "advanced": [
+                {
+                    "id": "adv_001",
+                    "name": "Elite Performance Training",
+                    "difficulty": "advanced",
+                    "duration": 40,
+                    "equipment": ["dumbbells", "kettlebell", "pull_up_bar"],
+                    "exercises": [
+                        {"name": "Weighted Pull-ups", "reps": "6-8", "sets": 4, "rest": "90 seconds"},
+                        {"name": "Pistol Squats", "reps": "5-8 each leg", "sets": 3, "rest": "90 seconds"},
+                        {"name": "Kettlebell Swings", "reps": "20-25", "sets": 4, "rest": "60 seconds"},
+                        {"name": "Handstand Push-ups", "reps": "3-5", "sets": 3, "rest": "120 seconds"},
+                        {"name": "Weighted Squats", "reps": "8-10", "sets": 4, "rest": "90 seconds"},
+                        {"name": "Turkish Get-ups", "reps": "3-5 each side", "sets": 3, "rest": "90 seconds"},
+                        {"name": "Planche Progressions", "reps": "Hold 15-30 sec", "sets": 3, "rest": "90 seconds"}
+                    ],
+                    "muscle_groups": ["full_body"],
+                    "calories_burned": 450
+                }
+            ]
+        }
+    
+    def generate_personalized_workout(self, user: User) -> Dict:
+        """Generate a personalized workout for a user"""
+        available_workouts = self.workouts_db.get(user.fitness_level, [])
+        
+        if not available_workouts:
+            return self.workouts_db["beginner"][0]  # Fallback
+        
+        # Filter workouts based on user preferences
+        filtered_workouts = []
+        for workout in available_workouts:
+            if self._matches_user_preferences(workout, user):
+                filtered_workouts.append(workout)
+        
+        if not filtered_workouts:
+            filtered_workouts = available_workouts
+        
+        # Select a random workout
+        selected_workout = random.choice(filtered_workouts)
+        
+        # Add motivational message
+        selected_workout["motivation"] = self._get_motivational_message(user)
+        selected_workout["tips"] = self._get_workout_tips(selected_workout["difficulty"])
+        
+        return selected_workout
+    
+    def _matches_user_preferences(self, workout: Dict, user: User) -> bool:
+        """Check if a workout matches user preferences"""
+        preferences = user.preferences
+        
+        # Check equipment availability
+        if "equipment" in preferences:
+            available_equipment = preferences["equipment"]
+            if not any(eq in available_equipment for eq in workout["equipment"]):
+                return False
+        
+        # Check duration preference
+        if "max_duration" in preferences:
+            if workout["duration"] > preferences["max_duration"]:
+                return False
+        
+        return True
+    
+    def _get_motivational_message(self, user: User) -> str:
+        """Get a personalized motivational message"""
+        messages = [
+            f"Great job staying committed to your fitness journey, {user.name}! 💪",
+            f"Ready to crush today's workout, {user.name}? You've got this! 🔥",
+            f"Another day, another opportunity to get stronger, {user.name}! 🚀",
+            f"Your dedication is inspiring, {user.name}! Let's make today count! ⭐",
+            f"Remember {user.name}, every workout brings you closer to your goals! 🎯"
+        ]
+        return random.choice(messages)
+    
+    def _get_workout_tips(self, difficulty: str) -> List[str]:
+        """Get workout tips based on difficulty level"""
+        tips = {
+            "beginner": [
+                "Focus on proper form over speed",
+                "Take breaks when needed - listen to your body",
+                "Stay hydrated throughout your workout",
+                "Remember to warm up before starting"
+            ],
+            "intermediate": [
+                "Challenge yourself but maintain good form",
+                "Control your breathing during exercises",
+                "Progressive overload - gradually increase intensity",
+                "Cool down with light stretching after workout"
+            ],
+            "advanced": [
+                "Mind-muscle connection is key for maximum gains",
+                "Track your progress and adjust weights accordingly",
+                "Include mobility work in your routine",
+                "Ensure adequate recovery between intense sessions"
+            ]
+        }
+        return tips.get(difficulty, tips["beginner"])
+
+class EmailService:
+    def __init__(self, smtp_server: str, smtp_port: int, username: str, password: str):
+        self.smtp_server = smtp_server
+        self.smtp_port = smtp_port
+        self.username = username
+        self.password = password
+    
+    def send_workout_email(self, user: User, workout: Dict) -> bool:
+        """Send a personalized workout email to a user"""
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f"🏋️ Your Daily Workout: {workout['name']}"
+            msg['From'] = self.username
+            msg['To'] = user.email
+            
+            # Create HTML email content
+            html_content = self._create_workout_email_html(user, workout)
+            html_part = MIMEText(html_content, 'html')
+            msg.attach(html_part)
+            
+            # Send email
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.username, self.password)
+                server.send_message(msg)
+            
+            return True
+        except Exception as e:
+            print(f"Failed to send email to {user.email}: {e}")
+            return False
+    
+    def _create_workout_email_html(self, user: User, workout: Dict) -> str:
+        """Create HTML content for workout email"""
+        exercises_html = ""
+        for exercise in workout["exercises"]:
+            exercises_html += f"""
+            <div style="background: #f8f9fa; margin: 10px 0; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff;">
+                <h4 style="margin: 0 0 8px 0; color: #333;">{exercise['name']}</h4>
+                <p style="margin: 5px 0; color: #666;">
+                    <strong>Sets:</strong> {exercise['sets']} | 
+                    <strong>Reps:</strong> {exercise['reps']} | 
+                    <strong>Rest:</strong> {exercise['rest']}
+                </p>
+            </div>
+            """
+        
+        tips_html = ""
+        for tip in workout.get("tips", []):
+            tips_html += f"<li style='margin-bottom: 8px; color: #555;'>{tip}</li>"
+        
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f4f4f4;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1);">
+                
+                <!-- Header -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center;">
+                    <h1 style="margin: 0; font-size: 28px;">🏋️ Daily Fitness Challenge</h1>
+                    <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your personalized workout is here!</p>
+                </div>
+                
+                <!-- Content -->
+                <div style="padding: 30px;">
+                    
+                    <!-- Greeting -->
+                    <div style="margin-bottom: 25px;">
+                        <h2 style="color: #333; margin: 0 0 15px 0;">Hello {user.name}! 👋</h2>
+                        <p style="color: #666; font-size: 16px; margin: 0;">{workout.get('motivation', 'Ready for today\'s workout?')}</p>
+                    </div>
+                    
+                    <!-- Workout Overview -->
+                    <div style="background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 22px;">{workout['name']}</h3>
+                        <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
+                            <div style="text-align: center; margin: 5px;">
+                                <div style="font-size: 18px; font-weight: bold;">⏱️ {workout['duration']} min</div>
+                                <div style="font-size: 14px; opacity: 0.9;">Duration</div>
+                            </div>
+                            <div style="text-align: center; margin: 5px;">
+                                <div style="font-size: 18px; font-weight: bold;">🔥 {workout['calories_burned']}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">Calories</div>
+                            </div>
+                            <div style="text-align: center; margin: 5px;">
+                                <div style="font-size: 18px; font-weight: bold;">📈 {workout['difficulty'].title()}</div>
+                                <div style="font-size: 14px; opacity: 0.9;">Level</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Exercises -->
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="color: #333; margin: 0 0 15px 0; font-size: 20px;">Today's Exercises</h3>
+                        {exercises_html}
+                    </div>
+                    
+                    <!-- Tips -->
+                    <div style="background: #e8f5e8; padding: 20px; border-radius: 10px; border-left: 4px solid #28a745; margin-bottom: 25px;">
+                        <h4 style="margin: 0 0 15px 0; color: #155724;">💡 Pro Tips</h4>
+                        <ul style="margin: 0; padding-left: 20px;">
+                            {tips_html}
+                        </ul>
+                    </div>
+                    
+                    <!-- Equipment -->
+                    <div style="margin-bottom: 25px;">
+                        <h4 style="color: #333; margin: 0 0 10px 0;">🏋️ Equipment Needed</h4>
+                        <p style="color: #666; margin: 0; font-style: italic;">
+                            {', '.join(workout['equipment']).replace('_', ' ').title()}
+                        </p>
+                    </div>
+                    
+                    <!-- Call to Action -->
+                    <div style="text-align: center; margin: 30px 0;">
+                        <p style="color: #333; font-size: 18px; margin: 0 0 15px 0;">Ready to get started? 💪</p>
+                        <div style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 15px 30px; border-radius: 25px; display: inline-block; font-weight: bold;">
+                            Let's Do This! 🚀
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                <!-- Footer -->
+                <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                    <p style="margin: 0; color: #666; font-size: 14px;">
+                        Stay strong and keep moving! 💙<br>
+                        <small>Daily Fitness App | Sent on {datetime.now().strftime('%B %d, %Y')}</small>
+                    </p>
+                </div>
+                
+            </div>
+        </body>
+        </html>
+        """
+
+class FitnessApp:
+    def __init__(self):
+        self.db = HarperDBClient(
+            Config.HARPERDB_URL,
+            Config.HARPERDB_USERNAME,
+            Config.HARPERDB_PASSWORD,
+            Config.HARPERDB_SCHEMA
+        )
+        self.workout_generator = WorkoutGenerator()
+        self.email_service = EmailService(
+            Config.SMTP_SERVER,
+            Config.SMTP_PORT,
+            Config.EMAIL_USERNAME,
+            Config.EMAIL_PASSWORD
+        )
+        self.app = Flask(__name__)
+        self.app.secret_key = Config.SECRET_KEY
+        
+        self._setup_database()
+        self._setup_routes()
+        self._setup_scheduler()
+    
+    def _setup_database(self):
+        """Initialize database schema and tables"""
+        try:
+            self.db.create_schema()
+            self.db.create_table("users", "id")
+            self.db.create_table("workouts", "id")
+            self.db.create_table("email_logs", "id")
+            print("Database setup completed successfully!")
+        except Exception as e:
+            print(f"Database setup error: {e}")
+    
+    def _setup_routes(self):
+        """Setup Flask routes"""
+        
+        @self.app.route('/')
+        def index():
+            return render_template_string(self._get_index_template())
+        
+        @self.app.route('/register', methods=['POST'])
+        def register():
+            try:
+                data = request.get_json()
+                
+                # Validate required fields
+                required_fields = ['name', 'email', 'fitness_level', 'goals']
+                for field in required_fields:
+                    if field not in data:
+                        return jsonify({"error": f"Missing field: {field}"}), 400
+                
+                # Create user
+                user_id = hashlib.md5(data['email'].encode()).hexdigest()
+                user = {
+                    "id": user_id,
+                    "email": data['email'],
+                    "name": data['name'],
+                    "fitness_level": data['fitness_level'],
+                    "goals": data['goals'],
+                    "preferences": data.get('preferences', {}),
+                    "created_at": datetime.now().isoformat(),
+                    "last_workout_sent": ""
+                }
+                
+                # Save to database
+                result = self.db.insert("users", [user])
+                if "error" in result:
+                    return jsonify({"error": "Failed to save user"}), 500
+                
+                return jsonify({"message": "Registration successful!", "user_id": user_id})
+            
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/users')
+        def get_users():
+            result = self.db.sql(f"SELECT * FROM {Config.HARPERDB_SCHEMA}.users")
+            return jsonify(result)
+        
+        @self.app.route('/send_test_workout/<user_id>')
+        def send_test_workout(user_id):
+            try:
+                # Get user from database
+                result = self.db.search_by_value("users", "id", user_id)
+                if not result or "error" in result:
+                    return jsonify({"error": "User not found"}), 404
+                
+                user_data = result[0]
+                user = User(**user_data)
+                
+                # Generate and send workout
+                workout = self.workout_generator.generate_personalized_workout(user)
+                success = self.email_service.send_workout_email(user, workout)
+                
+                if success:
+                    # Update last workout sent
+                    self.db.sql(f"""
+                        UPDATE {Config.HARPERDB_SCHEMA}.users 
+                        SET last_workout_sent = '{datetime.now().isoformat()}'
+                        WHERE id = '{user_id}'
+                    """)
+                    
+                    return jsonify({"message": "Test workout sent successfully!"})
+                else:
+                    return jsonify({"error": "Failed to send workout"}), 500
+            
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/admin')
+        def admin():
+            return render_template_string(self._get_admin_template())
+    
+    def _setup_scheduler(self):
+        """Setup workout email scheduler"""
+        schedule.every().day.at(Config.SEND_TIME).do(self._send_daily_workouts)
+        
+        # Start scheduler in a separate thread
+        def run_scheduler():
+            while True:
+                schedule.run_pending()
+                time.sleep(60)  # Check every minute
+        
+        scheduler_thread = threading.Thread(target=run_scheduler)
+        scheduler_thread.daemon = True
+        scheduler_thread.start()
+        
+        print(f"Scheduler started! Daily workouts will be sent at {Config.SEND_TIME}")
+    
+    def _send_daily_workouts(self):
+        """Send daily workouts to all users"""
+        try:
+            # Get all users
+            result = self.db.sql(f"SELECT * FROM {Config.HARPERDB_SCHEMA}.users")
+            
+            if "error" in result:
+                print(f"Error fetching users: {result['error']}")
+                return
+            
+            users = result
+            successful_sends = 0
+            
+            for user_data in users:
+                try:
+                    user = User(**user_data)
+                    
+                    # Generate personalized workout
+                    workout = self.workout_generator.generate_personalized_workout(user)
+                    
+                    # Send email
+                    success = self.email_service.send_workout_email(user, workout)
+                    
+                    if success:
+                        # Update last workout sent
+                        self.db.sql(f"""
+                            UPDATE {Config.HARPERDB_SCHEMA}.users 
+                            SET last_workout_sent = '{datetime.now().isoformat()}'
+                            WHERE id = '{user.id}'
+                        """)
+                        successful_sends += 1
+                        
+                        # Log email send
+                        log_entry = {
+                            "id": secrets.token_hex(8),
+                            "user_id": user.id,
+                            "workout_id": workout["id"],
+                            "sent_at": datetime.now().isoformat(),
+                            "status": "success"
+                        }
+                        self.db.insert("email_logs", [log_entry])
+                    
+                except Exception as e:
+                    print(f"Error sending workout to user {user_data.get('email', 'unknown')}: {e}")
+            
+            print(f"Daily workouts sent to {successful_sends} users")
+        
+        except Exception as e:
+            print(f"Error in daily workout sending: {e}")
+    
+    def _get_index_template(self):
+        """Get the main page HTML template"""
+        return """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Daily Fitness Email App</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 800px;
+                    margin: 0 auto;
+                    background: rgba(255, 255, 255, 0.95);
+                    border-radius: 20px;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+                    overflow: hidden;
+                }
+                .header {
+                    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+                    color: white;
+                    padding: 40px;
+                    text-align: center;
+                }
+                .header h1 {
+                    font-size: 2.5em;
+                    margin-bottom: 10px;
+                }
+                .content {
+                    padding: 40px;
+                }
+                .form-group {
+                    margin-bottom: 25px;
+                }
+                label {
+                    display: block;
+                    margin-bottom: 8px;
+                    font-weight: 600;
+                    color: #333;
+                }
+                input, select, textarea {
+                    width: 100%;
+                    padding: 15px;
+                    border: 2px solid #e9ecef;
+                    border-radius: 12px;
+                    font-size: 16px;
+                    transition: all 0.3s ease;
+                }
+                input:focus, select:focus, textarea:focus {
+                    outline: none;
+                    border-color: #667eea;
+                    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+                }
+                .btn {
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    border: none;
+                    padding: 15px 30px;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                    width: 100%;
+                }
+                .btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+                }
+                .checkbox-group {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 15px;
+                }
+                .checkbox-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .checkbox-item input[type="checkbox"] {
+                    width: auto;
+                    margin: 0;
+                }
+                .success-message {
+                    background: #d4edda;
+                    color: #155724;
+                    padding: 15px;
+                    border-radius: 8px;
+                    margin-top: 20px;
+                    display: none;
+                }
+                .error-message {
+                    background: #f8d7da;
+                    color: #721c24;
+                    padding: 15px;
+                    border-radius: 8px;
+                    margin-top: 20px;
+                    display: none;
+                }
+                .grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 20px;
+                }
+                @media (max-width: 600px) {
+                    .grid { grid-template-columns: 1fr; }
+                    .checkbox-group { flex-direction: column; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🏋️ Daily Fitness Email App</h1>
+                    <p>Get personalized workouts delivered to your inbox every day!</p>
+                </div>
+                
+                <div class="content">
+                    <form id="registrationForm">
+                        <div class="grid">
+                            <div class="form-group">
+                                <label for="name">Full Name *</label>
+                                <input type="text" id="name" name="name" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="email">Email Address *</label>
+                                <input type="email" id="email" name="email" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="fitness_level">Fitness Level *</label>
+                            <select id="fitness_level" name="fitness_level" required>
+                                <option value="">Select your fitness level</option>
+                                <option value="beginner">Beginner - Just starting out</option>
+                                <option value="intermediate">Intermediate - Regular exercise</option>
+                                <option value="advanced">Advanced - Very experienced</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Fitness Goals * (Select all that apply)</label>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="weight_loss" name="goals" value="weight_loss">
+                                    <label for="weight_loss">Weight Loss</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="muscle_gain" name="goals" value="muscle_gain">
+                                    <label for="muscle_gain">Muscle Gain</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="endurance" name="goals" value="endurance">
+                                    <label for="endurance">Endurance</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="strength" name="goals" value="strength">
+                                    <label for="strength">Strength</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="flexibility" name="goals" value="flexibility">
+                                    <label for="flexibility">Flexibility</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="general_fitness" name="goals" value="general_fitness">
+                                    <label for="general_fitness">General Fitness</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Available Equipment (Select all that apply)</label>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="bodyweight" name="equipment" value="bodyweight" checked>
+                                    <label for="bodyweight">Bodyweight Only</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="dumbbells" name="equipment" value="dumbbells">
+                                    <label for="dumbbells">Dumbbells</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="resistance_band" name="equipment" value="resistance_band">
+                                    <label for="resistance_band">Resistance Bands</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="kettlebell" name="equipment" value="kettlebell">
+                                    <label for="kettlebell">Kettlebells</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="pull_up_bar" name="equipment" value="pull_up_bar">
+                                    <label for="pull_up_bar">Pull-up Bar</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="yoga_mat" name="equipment" value="yoga_mat">
+                                    <label for="yoga_mat">Yoga Mat</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid">
+                            <div class="form-group">
+                                <label for="max_duration">Max Workout Duration (minutes)</label>
+                                <select id="max_duration" name="max_duration">
+                                    <option value="15">15 minutes</option>
+                                    <option value="30" selected>30 minutes</option>
+                                    <option value="45">45 minutes</option>
+                                    <option value="60">60 minutes</option>
+                                    <option value="90">90 minutes</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="preferred_time">Preferred Workout Time</label>
+                                <select id="preferred_time" name="preferred_time">
+                                    <option value="morning">Morning (6-10 AM)</option>
+                                    <option value="afternoon">Afternoon (12-5 PM)</option>
+                                    <option value="evening">Evening (6-9 PM)</option>
+                                    <option value="anytime">Anytime</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn">🚀 Start My Fitness Journey!</button>
+                        
+                        <div id="success-message" class="success-message"></div>
+                        <div id="error-message" class="error-message"></div>
+                    </form>
+                    
+                    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                        <h3>What You'll Get:</h3>
+                        <ul style="margin: 15px 0; padding-left: 20px;">
+                            <li>Personalized daily workouts based on your fitness level</li>
+                            <li>Workouts tailored to your available equipment</li>
+                            <li>Motivational messages to keep you going</li>
+                            <li>Progressive difficulty as you improve</li>
+                            <li>Detailed exercise instructions and tips</li>
+                            <li>Calorie burn estimates for each workout</li>
+                        </ul>
+                        <p style="margin: 0; color: #666; font-style: italic;">
+                            Emails are sent daily at 7:00 AM. You can unsubscribe at any time.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                document.getElementById('registrationForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(e.target);
+                    const data = {};
+                    
+                    // Get text inputs
+                    ['name', 'email', 'fitness_level', 'max_duration', 'preferred_time'].forEach(field => {
+                        data[field] = formData.get(field);
+                    });
+                    
+                    // Get checkboxes for goals
+                    data.goals = [];
+                    document.querySelectorAll('input[name="goals"]:checked').forEach(cb => {
+                        data.goals.push(cb.value);
+                    });
+                    
+                    // Get checkboxes for equipment
+                    const equipment = [];
+                    document.querySelectorAll('input[name="equipment"]:checked').forEach(cb => {
+                        equipment.push(cb.value);
+                    });
+                    
+                    // Set preferences
+                    data.preferences = {
+                        equipment: equipment,
+                        max_duration: parseInt(data.max_duration),
+                        preferred_time: data.preferred_time
+                    };
+                    
+                    // Validate required fields
+                    if (!data.name || !data.email || !data.fitness_level || data.goals.length === 0) {
+                        showError('Please fill in all required fields and select at least one fitness goal.');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/register', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (response.ok) {
+                            showSuccess(`Welcome aboard, ${data.name}! Your first workout will arrive tomorrow morning. Check your email for a confirmation.`);
+                            e.target.reset();
+                        } else {
+                            showError(result.error || 'Registration failed. Please try again.');
+                        }
+                    } catch (error) {
+                        showError('Network error. Please check your connection and try again.');
+                    }
+                });
+                
+                function showSuccess(message) {
+                    const successDiv = document.getElementById('success-message');
+                    const errorDiv = document.getElementById('error-message');
+                    successDiv.textContent = message;
+                    successDiv.style.display = 'block';
+                    errorDiv.style.display = 'none';
+                    successDiv.scrollIntoView({ behavior: 'smooth' });
+                }
+                
+                function showError(message) {
+                    const successDiv = document.getElementById('success-message');
+                    const errorDiv = document.getElementById('error-message');
+                    errorDiv.textContent = message;
+                    errorDiv.style.display = 'block';
+                    successDiv.style.display = 'none';
+                    errorDiv.scrollIntoView({ behavior: 'smooth' });
+                }
+            </script>
+        </body>
+        </html>
+        """
+    
+    def _get_admin_template(self):
+        """Get the admin page HTML template"""
+        return """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Admin Dashboard - Fitness App</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    background: rgba(255, 255, 255, 0.95);
+                    border-radius: 20px;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+                    overflow: hidden;
+                }
+                .header {
+                    background: linear-gradient(135deg, #28a745, #20c997);
+                    color: white;
+                    padding: 30px;
+                    text-align: center;
+                }
+                .content {
+                    padding: 40px;
+                }
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                    gap: 20px;
+                    margin-bottom: 40px;
+                }
+                .stat-card {
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    padding: 25px;
+                    border-radius: 15px;
+                    text-align: center;
+                }
+                .stat-value {
+                    font-size: 2.5em;
+                    font-weight: 700;
+                    margin-bottom: 5px;
+                }
+                .btn {
+                    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+                    color: white;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                    margin: 5px;
+                }
+                .btn:hover {
+                    transform: translateY(-2px);
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 20px;
+                    background: white;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+                }
+                th, td {
+                    padding: 15px;
+                    text-align: left;
+                    border-bottom: 1px solid #e9ecef;
+                }
+                th {
+                    background: #f8f9fa;
+                    font-weight: 600;
+                    color: #333;
+                }
+                tr:hover {
+                    background: #f8f9fa;
+                }
+                .status-success {
+                    background: #d4edda;
+                    color: #155724;
+                    padding: 10px;
+                    border-radius: 5px;
+                    margin: 10px 0;
+                    display: none;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🎯 Admin Dashboard</h1>
+                    <p>Manage your fitness email application</p>
+                </div>
+                
+                <div class="content">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-users">0</div>
+                            <div>Total Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="emails-sent">0</div>
+                            <div>Emails Sent Today</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">7:00 AM</div>
+                            <div>Daily Send Time</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 30px;">
+                        <h3>Quick Actions</h3>
+                        <button class="btn" onclick="refreshUsers()">🔄 Refresh Users</button>
+                        <button class="btn" onclick="sendTestEmails()">📧 Send Test Emails</button>
+                        <button class="btn" onclick="viewEmailLogs()">📊 View Email Logs</button>
+                    </div>
+                    
+                    <div id="status-message" class="status-success"></div>
+                    
+                    <h3>Registered Users</h3>
+                    <table id="users-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Level</th>
+                                <th>Goals</th>
+                                <th>Last Workout</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-tbody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 40px;">
+                                    Loading users...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <script>
+                async function refreshUsers() {
+                    try {
+                        const response = await fetch('/users');
+                        const users = await response.json();
+                        
+                        const tbody = document.getElementById('users-tbody');
+                        tbody.innerHTML = '';
+                        
+                        if (users.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">No users registered yet.</td></tr>';
+                        } else {
+                            users.forEach(user => {
+                                const row = document.createElement('tr');
+                                const lastWorkout = user.last_workout_sent ? 
+                                    new Date(user.last_workout_sent).toLocaleDateString() : 
+                                    'Never';
+                                
+                                row.innerHTML = `
+                                    <td>${user.name}</td>
+                                    <td>${user.email}</td>
+                                    <td style="text-transform: capitalize;">${user.fitness_level}</td>
+                                    <td>${user.goals.join(', ')}</td>
+                                    <td>${lastWorkout}</td>
+                                    <td>
+                                        <button class="btn" onclick="sendTestWorkout('${user.id}')">Send Test</button>
+                                    </td>
+                                `;
+                                tbody.appendChild(row);
+                            });
+                        }
+                        
+                        document.getElementById('total-users').textContent = users.length;
+                        showStatus('Users refreshed successfully!');
+                        
+                    } catch (error) {
+                        showStatus('Error loading users: ' + error.message);
+                    }
+                }
+                
+                async function sendTestWorkout(userId) {
+                    try {
+                        const response = await fetch(`/send_test_workout/${userId}`);
+                        const result = await response.json();
+                        
+                        if (response.ok) {
+                            showStatus('Test workout sent successfully!');
+                        } else {
+                            showStatus('Error: ' + result.error);
+                        }
+                    } catch (error) {
+                        showStatus('Network error: ' + error.message);
+                    }
+                }
+                
+                function sendTestEmails() {
+                    if (confirm('Send test emails to all registered users?')) {
+                        // Implementation would go here
+                        showStatus('Test emails would be sent to all users.');
+                    }
+                }
+                
+                function viewEmailLogs() {
+                    showStatus('Email logs feature would be implemented here.');
+                }
+                
+                function showStatus(message) {
+                    const statusDiv = document.getElementById('status-message');
+                    statusDiv.textContent = message;
+                    statusDiv.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                    }, 5000);
+                }
+                
+                // Load users on page load
+                refreshUsers();
+                
+                // Auto-refresh every 30 seconds
+                setInterval(refreshUsers, 30000);
+            </script>
+        </body>
+        </html>
+        """
+    
+    def run(self, host='localhost', port=5000, debug=True):
+        """Run the Flask application"""
+        print(f"""
+        🏋️ Daily Fitness Email App Starting...
+        
+        📊 Dashboard: http://{host}:{port}/admin
+        🏠 Main App: http://{host}:{port}/
+        
+        ⚙️ Configuration:
+        - Daily emails sent at: {Config.SEND_TIME}
+        - SMTP Server: {Config.SMTP_SERVER}
+        - HarperDB Schema: {Config.HARPERDB_SCHEMA}
+        
+        📧 Make sure to configure your email credentials in the Config class!
+        🗄️ Make sure to configure your HarperDB connection details!
+        """)
+        
+        self.app.run(host=host, port=port, debug=debug)
+
+# Additional utility functions and classes
+
+class WorkoutAnalytics:
+    """Analytics for tracking workout performance and user engagement"""
+    
+    def __init__(self, db_client):
+        self.db = db_client
+    
+    def get_user_engagement_stats(self):
+        """Get user engagement statistics"""
+        try:
+            # Get total users
+            users_result = self.db.sql(f"SELECT COUNT(*) as count FROM {Config.HARPERDB_SCHEMA}.users")
+            total_users = users_result[0]['count'] if users_result else 0
+            
+            # Get emails sent today
+            today = datetime.now().strftime('%Y-%m-%d')
+            emails_result = self.db.sql(f"""
+                SELECT COUNT(*) as count 
+                FROM {Config.HARPERDB_SCHEMA}.email_logs 
+                WHERE sent_at LIKE '{today}%'
+            """)
+            emails_today = emails_result[0]['count'] if emails_result else 0
+            
+            return {
+                "total_users": total_users,
+                "emails_sent_today": emails_today,
+                "engagement_rate": (emails_today / total_users * 100) if total_users > 0 else 0
+            }
+        except Exception as e:
+            print(f"Error getting engagement stats: {e}")
+            return {"total_users": 0, "emails_sent_today": 0, "engagement_rate": 0}
+
+class NotificationManager:
+    """Manage different types of notifications beyond daily workouts"""
+    
+    def __init__(self, email_service, db_client):
+        self.email_service = email_service
+        self.db = db_client
+    
+    def send_welcome_email(self, user: User):
+        """Send welcome email to new users"""
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = "🎉 Welcome to Your Fitness Journey!"
+            msg['From'] = Config.EMAIL_USERNAME
+            msg['To'] = user.email
+            
+            welcome_html = self._create_welcome_email_html(user)
+            html_part = MIMEText(welcome_html, 'html')
+            msg.attach(html_part)
+            
+            with smtplib.SMTP(Config.SMTP_SERVER, Config.SMTP_PORT) as server:
+                server.starttls()
+                server.login(Config.EMAIL_USERNAME, Config.EMAIL_PASSWORD)
+                server.send_message(msg)
+            
+            return True
+        except Exception as e:
+            print(f"Failed to send welcome email: {e}")
+            return False
+    
+    def _create_welcome_email_html(self, user: User) -> str:
+        """Create HTML for welcome email"""
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f4f4f4;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1);">
+                
+                <div style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 40px; text-align: center;">
+                    <h1 style="margin: 0; font-size: 28px;">🎉 Welcome to Daily Fitness!</h1>
+                    <p style="margin: 15px 0 0 0; font-size: 18px;">Your personalized fitness journey starts now</p>
+                </div>
+                
+                <div style="padding: 40px;">
+                    <h2 style="color: #333; margin: 0 0 20px 0;">Hello {user.name}! 👋</h2>
+                    
+                    <p style="color: #666; font-size: 16px; margin-bottom: 25px;">
+                        Thank you for joining our fitness community! We're excited to help you achieve your fitness goals with personalized daily workouts.
+                    </p>
+                    
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin: 25px 0;">
+                        <h3 style="color: #333; margin: 0 0 15px 0;">Your Profile Summary:</h3>
+                        <ul style="color: #666; margin: 0; padding-left: 20px;">
+                            <li>Fitness Level: <strong>{user.fitness_level.title()}</strong></li>
+                            <li>Goals: <strong>{', '.join(user.goals)}</strong></li>
+                            <li>Equipment: <strong>{', '.join(user.preferences.get('equipment', ['bodyweight']))}</strong></li>
+                        </ul>
+                    </div>
+                    
+                    <h3 style="color: #333; margin: 30px 0 15px 0;">What Happens Next?</h3>
+                    <ul style="color: #666; margin: 0 0 30px 0; padding-left: 20px;">
+                        <li>Your first personalized workout will arrive tomorrow morning at 7:00 AM</li>
+                        <li>Each workout is tailored to your fitness level and available equipment</li>
+                        <li>Workouts include detailed instructions, tips, and motivation</li>
+                        <li>Track your progress as we gradually increase the challenge</li>
+                    </ul>
+                    
+                    <div style="text-align: center; margin: 40px 0;">
+                        <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; border-radius: 15px; display: inline-block;">
+                            <h3 style="margin: 0 0 10px 0;">🚀 Ready to Transform?</h3>
+                            <p style="margin: 0; font-size: 16px;">Your fitness journey starts tomorrow!</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+                    <p style="margin: 0; color: #666; font-size: 14px;">
+                        Need help? Just reply to this email - we're here to support you! 💙<br>
+                        <small>Daily Fitness App | Welcome Email</small>
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+# Main execution
+if __name__ == "__main__":
+    # Create and run the fitness app
+    app = FitnessApp()
+    
+    # You can also add some test data or run analytics
+    print("📊 Starting Daily Fitness Email Application...")
+    print("⚠️  IMPORTANT: Configure your email and HarperDB credentials in the Config class!")
+    
+    # Run the application
+    app.run(host='0.0.0.0', port=5000, debug=True)
