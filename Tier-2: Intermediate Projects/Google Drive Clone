@@ -1,1 +1,635 @@
 
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Upload, 
+  Folder, 
+  File, 
+  MoreVertical, 
+  Download, 
+  Trash2, 
+  Edit3, 
+  Eye, 
+  Grid, 
+  List,
+  Search,
+  Plus,
+  Home,
+  Star,
+  Clock,
+  Users,
+  Settings,
+  X,
+  Check,
+  FolderPlus
+} from 'lucide-react';
+
+// Mock Firebase functions - replace with actual Firebase in production
+const mockFirebase = {
+  // Mock user authentication
+  currentUser: {
+    uid: 'user123',
+    email: 'user@example.com',
+    displayName: 'John Doe'
+  },
+  
+  // Mock database operations
+  async uploadFile(file, path = '/') {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const mockFile = {
+          id: Date.now().toString(),
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          path: path,
+          url: URL.createObjectURL(file),
+          createdAt: new Date().toISOString(),
+          modifiedAt: new Date().toISOString(),
+          owner: 'John Doe'
+        };
+        resolve(mockFile);
+      }, 1500);
+    });
+  },
+  
+  async createFolder(name, path = '/') {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const mockFolder = {
+          id: Date.now().toString(),
+          name: name,
+          type: 'folder',
+          path: path,
+          createdAt: new Date().toISOString(),
+          modifiedAt: new Date().toISOString(),
+          owner: 'John Doe'
+        };
+        resolve(mockFolder);
+      }, 500);
+    });
+  },
+  
+  async getFiles(path = '/') {
+    // Return mock files and folders
+    return [
+      {
+        id: '1',
+        name: 'Documents',
+        type: 'folder',
+        path: '/',
+        createdAt: '2024-03-01T10:00:00Z',
+        modifiedAt: '2024-03-15T14:30:00Z',
+        owner: 'John Doe'
+      },
+      {
+        id: '2',
+        name: 'Images',
+        type: 'folder',
+        path: '/',
+        createdAt: '2024-03-05T09:15:00Z',
+        modifiedAt: '2024-03-20T11:45:00Z',
+        owner: 'John Doe'
+      },
+      {
+        id: '3',
+        name: 'Project Proposal.pdf',
+        type: 'application/pdf',
+        size: 2048000,
+        path: '/',
+        url: '#',
+        createdAt: '2024-03-10T16:20:00Z',
+        modifiedAt: '2024-03-12T10:15:00Z',
+        owner: 'John Doe'
+      },
+      {
+        id: '4',
+        name: 'Presentation.pptx',
+        type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        size: 5120000,
+        path: '/',
+        url: '#',
+        createdAt: '2024-03-08T13:45:00Z',
+        modifiedAt: '2024-03-18T09:30:00Z',
+        owner: 'John Doe'
+      }
+    ];
+  },
+  
+  async deleteItem(id) {
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(true), 500);
+    });
+  },
+  
+  async renameItem(id, newName) {
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(true), 500);
+    });
+  }
+};
+
+const GoogleDriveClone = () => {
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [currentPath, setCurrentPath] = useState('/');
+  const [viewMode, setViewMode] = useState('grid');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, item: null });
+  const [editingItem, setEditingItem] = useState(null);
+  const [editName, setEditName] = useState('');
+  
+  const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
+
+  useEffect(() => {
+    loadFiles();
+  }, [currentPath]);
+
+  const loadFiles = async () => {
+    setLoading(true);
+    try {
+      const data = await mockFirebase.getFiles(currentPath);
+      setFiles(data);
+    } catch (error) {
+      console.error('Error loading files:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const selectedFiles = Array.from(event.target.files);
+    if (selectedFiles.length === 0) return;
+
+    setUploading(true);
+    
+    try {
+      for (const file of selectedFiles) {
+        const uploadedFile = await mockFirebase.uploadFile(file, currentPath);
+        setFiles(prev => [...prev, uploadedFile]);
+      }
+    } catch (error) {
+      console.error('Error uploading files:', error);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    
+    setLoading(true);
+    try {
+      const folder = await mockFirebase.createFolder(newFolderName, currentPath);
+      setFiles(prev => [...prev, folder]);
+      setNewFolderName('');
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Error creating folder:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleContextMenu = (event, item) => {
+    event.preventDefault();
+    setContextMenu({
+      show: true,
+      x: event.pageX,
+      y: event.pageY,
+      item: item
+    });
+  };
+
+  const handleDelete = async (item) => {
+    if (!window.confirm(`Are you sure you want to delete "${item.name}"?`)) return;
+    
+    try {
+      await mockFirebase.deleteItem(item.id);
+      setFiles(prev => prev.filter(f => f.id !== item.id));
+      setContextMenu({ show: false, x: 0, y: 0, item: null });
+    } catch (error) {
+      console.error('Error deleting item:', error);
+    }
+  };
+
+  const handleRename = async (item) => {
+    setEditingItem(item.id);
+    setEditName(item.name);
+    setContextMenu({ show: false, x: 0, y: 0, item: null });
+  };
+
+  const submitRename = async () => {
+    if (!editName.trim() || editName === files.find(f => f.id === editingItem)?.name) {
+      setEditingItem(null);
+      setEditName('');
+      return;
+    }
+
+    try {
+      await mockFirebase.renameItem(editingItem, editName);
+      setFiles(prev => prev.map(f => 
+        f.id === editingItem ? { ...f, name: editName } : f
+      ));
+    } catch (error) {
+      console.error('Error renaming item:', error);
+    } finally {
+      setEditingItem(null);
+      setEditName('');
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return 'Today';
+    if (diffDays === 2) return 'Yesterday';
+    if (diffDays <= 7) return `${diffDays - 1} days ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getFileIcon = (file) => {
+    if (file.type === 'folder') return <Folder className="w-6 h-6 text-blue-500" />;
+    
+    const type = file.type || '';
+    if (type.includes('image')) return <File className="w-6 h-6 text-green-500" />;
+    if (type.includes('pdf')) return <File className="w-6 h-6 text-red-500" />;
+    if (type.includes('document') || type.includes('word')) return <File className="w-6 h-6 text-blue-600" />;
+    if (type.includes('sheet') || type.includes('excel')) return <File className="w-6 h-6 text-green-600" />;
+    if (type.includes('presentation') || type.includes('powerpoint')) return <File className="w-6 h-6 text-orange-500" />;
+    
+    return <File className="w-6 h-6 text-gray-500" />;
+  };
+
+  const filteredFiles = files.filter(file =>
+    file.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleDoubleClick = (item) => {
+    if (item.type === 'folder') {
+      setCurrentPath(currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`);
+    } else {
+      // Open file (in real app, this would open a preview or download)
+      if (item.url) {
+        window.open(item.url, '_blank');
+      }
+    }
+  };
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClick = () => setContextMenu({ show: false, x: 0, y: 0, item: null });
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+        <div className="p-4 border-b border-gray-200">
+          <h1 className="text-xl font-semibold text-gray-900">Drive Clone</h1>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto">
+          <nav className="p-2 space-y-1">
+            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg">
+              <Home className="w-5 h-5 mr-3" />
+              My Drive
+            </a>
+            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
+              <Users className="w-5 h-5 mr-3" />
+              Shared with me
+            </a>
+            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
+              <Clock className="w-5 h-5 mr-3" />
+              Recent
+            </a>
+            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
+              <Star className="w-5 h-5 mr-3" />
+              Starred
+            </a>
+            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
+              <Trash2 className="w-5 h-5 mr-3" />
+              Trash
+            </a>
+          </nav>
+        </div>
+        
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search in Drive"
+                  className="pl-10 pr-4 py-2 w-96 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <div className="flex border border-gray-300 rounded-lg">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 ${viewMode === 'grid' ? 'bg-gray-100' : ''} rounded-l-lg`}
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 ${viewMode === 'list' ? 'bg-gray-100' : ''} rounded-r-lg`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <button className="p-2 hover:bg-gray-100 rounded-lg">
+                <Settings className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Action Bar */}
+        <div className="bg-white border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center space-x-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {uploading ? 'Uploading...' : 'Upload Files'}
+            </button>
+            
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <FolderPlus className="w-4 h-4 mr-2" />
+              New Folder
+            </button>
+          </div>
+        </div>
+
+        {/* File Content */}
+        <div className="flex-1 p-6">
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <>
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                  {filteredFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="group relative bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md cursor-pointer transition-shadow"
+                      onDoubleClick={() => handleDoubleClick(file)}
+                      onContextMenu={(e) => handleContextMenu(e, file)}
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div className="mb-2">
+                          {getFileIcon(file)}
+                        </div>
+                        {editingItem === file.id ? (
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onBlur={submitRename}
+                            onKeyPress={(e) => e.key === 'Enter' && submitRename()}
+                            className="text-xs w-full text-center border border-blue-500 rounded px-1"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-900 truncate w-full">
+                            {file.name}
+                          </span>
+                        )}
+                        {file.size && (
+                          <span className="text-xs text-gray-500 mt-1">
+                            {formatFileSize(file.size)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Owner
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Last Modified
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          File Size
+                        </th>
+                        <th className="relative px-6 py-3">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredFiles.map((file) => (
+                        <tr
+                          key={file.id}
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onDoubleClick={() => handleDoubleClick(file)}
+                          onContextMenu={(e) => handleContextMenu(e, file)}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {getFileIcon(file)}
+                              {editingItem === file.id ? (
+                                <input
+                                  type="text"
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  onBlur={submitRename}
+                                  onKeyPress={(e) => e.key === 'Enter' && submitRename()}
+                                  className="ml-3 text-sm font-medium text-gray-900 border border-blue-500 rounded px-2 py-1"
+                                  autoFocus
+                                />
+                              ) : (
+                                <span className="ml-3 text-sm font-medium text-gray-900">
+                                  {file.name}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {file.owner}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(file.modifiedAt)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {file.size ? formatFileSize(file.size) : '—'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleContextMenu(e, file);
+                              }}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
+              {filteredFiles.length === 0 && !loading && (
+                <div className="text-center py-12">
+                  <Folder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {searchTerm ? 'No files found' : 'This folder is empty'}
+                  </h3>
+                  <p className="text-gray-600">
+                    {searchTerm ? 'Try a different search term' : 'Upload files or create folders to get started'}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Context Menu */}
+      {contextMenu.show && (
+        <div
+          className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            onClick={() => handleDoubleClick(contextMenu.item)}
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+          >
+            <Eye className="w-4 h-4 mr-3" />
+            {contextMenu.item?.type === 'folder' ? 'Open' : 'Preview'}
+          </button>
+          <button
+            onClick={() => handleRename(contextMenu.item)}
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+          >
+            <Edit3 className="w-4 h-4 mr-3" />
+            Rename
+          </button>
+          {contextMenu.item?.type !== 'folder' && (
+            <button
+              onClick={() => contextMenu.item?.url && window.open(contextMenu.item.url, '_blank')}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+            >
+              <Download className="w-4 h-4 mr-3" />
+              Download
+            </button>
+          )}
+          <hr className="my-1" />
+          <button
+            onClick={() => handleDelete(contextMenu.item)}
+            className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center"
+          >
+            <Trash2 className="w-4 h-4 mr-3" />
+            Delete
+          </button>
+        </div>
+      )}
+
+      {/* Create Folder Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Folder</h3>
+            <input
+              ref={folderInputRef}
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Folder name"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
+              autoFocus
+            />
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewFolderName('');
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateFolder}
+                disabled={!newFolderName.trim() || loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default GoogleDriveClone;
