@@ -1,1 +1,406 @@
+import React, { useState, useEffect } from 'react';
+import { Search, MapPin, Calendar, ExternalLink, Building, Filter, X } from 'lucide-react';
 
+const GitHubJobsApp = () => {
+  const [jobs, setJobs] = useState([]);
+  const [filteredJobs, setFilteredJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [fullTimeOnly, setFullTimeOnly] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+
+  // Mock data since GitHub Jobs API was deprecated
+  const mockJobs = [
+    {
+      id: '1',
+      title: 'Senior Frontend Developer',
+      company: 'TechCorp',
+      location: 'San Francisco, CA',
+      type: 'Full Time',
+      created_at: '2024-03-15T10:00:00Z',
+      description: 'We are looking for a Senior Frontend Developer with expertise in React, TypeScript, and modern web technologies. You will be responsible for building scalable user interfaces and collaborating with cross-functional teams.',
+      how_to_apply: 'Send your resume to jobs@techcorp.com',
+      company_url: 'https://techcorp.com',
+      url: 'https://techcorp.com/jobs/frontend-dev'
+    },
+    {
+      id: '2',
+      title: 'Full Stack Engineer',
+      company: 'StartupXYZ',
+      location: 'Remote',
+      type: 'Full Time',
+      created_at: '2024-03-14T08:30:00Z',
+      description: 'Join our dynamic team as a Full Stack Engineer. Work with React, Node.js, and AWS to build innovative solutions. Remote-first company with flexible hours.',
+      how_to_apply: 'Apply at https://startupxyz.com/careers',
+      company_url: 'https://startupxyz.com',
+      url: 'https://startupxyz.com/jobs/fullstack'
+    },
+    {
+      id: '3',
+      title: 'React Developer',
+      company: 'WebSolutions Inc',
+      location: 'New York, NY',
+      type: 'Contract',
+      created_at: '2024-03-13T14:20:00Z',
+      description: 'Contract position for an experienced React Developer. Work on exciting projects for enterprise clients. Must have 3+ years of React experience.',
+      how_to_apply: 'Contact us at hiring@websolutions.com',
+      company_url: 'https://websolutions.com',
+      url: 'https://websolutions.com/jobs/react-dev'
+    },
+    {
+      id: '4',
+      title: 'Junior Frontend Developer',
+      company: 'DevAgency',
+      location: 'Austin, TX',
+      type: 'Part Time',
+      created_at: '2024-03-12T09:15:00Z',
+      description: 'Entry-level position for a Junior Frontend Developer. Great opportunity to learn and grow with modern technologies including React, Vue, and Angular.',
+      how_to_apply: 'Apply through our website at devagency.com/careers',
+      company_url: 'https://devagency.com',
+      url: 'https://devagency.com/jobs/junior-frontend'
+    },
+    {
+      id: '5',
+      title: 'Senior JavaScript Engineer',
+      company: 'CloudTech',
+      location: 'Seattle, WA',
+      type: 'Full Time',
+      created_at: '2024-03-11T16:45:00Z',
+      description: 'Senior JavaScript Engineer role focusing on scalable web applications. Experience with React, Node.js, and cloud platforms required.',
+      how_to_apply: 'Send resume to careers@cloudtech.com',
+      company_url: 'https://cloudtech.com',
+      url: 'https://cloudtech.com/jobs/js-engineer'
+    }
+  ];
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  useEffect(() => {
+    filterJobs();
+  }, [jobs, searchTerm, locationFilter, fullTimeOnly]);
+
+  const fetchJobs = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setJobs(mockJobs);
+    } catch (err) {
+      setError('Failed to fetch jobs. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterJobs = () => {
+    let filtered = jobs;
+
+    if (searchTerm) {
+      filtered = filtered.filter(job => 
+        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (locationFilter) {
+      filtered = filtered.filter(job => 
+        job.location.toLowerCase().includes(locationFilter.toLowerCase())
+      );
+    }
+
+    if (fullTimeOnly) {
+      filtered = filtered.filter(job => 
+        job.type.toLowerCase() === 'full time'
+      );
+    }
+
+    setFilteredJobs(filtered);
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setLocationFilter('');
+    setFullTimeOnly(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">GitHub Jobs</h1>
+            <div className="text-sm text-gray-600">
+              {filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''} found
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Sidebar Filters */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  <X className="w-4 h-4" />
+                  Clear
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Search */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Search Jobs
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Job title, company, or keywords"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Location */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Location
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      value={locationFilter}
+                      onChange={(e) => setLocationFilter(e.target.value)}
+                      placeholder="City, state, or remote"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Job Type */}
+                <div>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={fullTimeOnly}
+                      onChange={(e) => setFullTimeOnly(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Full Time Only</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+            ) : error ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-700">{error}</p>
+                <button
+                  onClick={fetchJobs}
+                  className="mt-2 text-red-600 hover:text-red-800 underline"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredJobs.map((job) => (
+                  <div
+                    key={job.id}
+                    className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => setSelectedJob(job)}
+                  >
+                    <div className="p-6">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600">
+                            {job.title}
+                          </h3>
+                          <p className="text-gray-600 flex items-center gap-1">
+                            <Building className="w-4 h-4" />
+                            {job.company}
+                          </p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          job.type === 'Full Time' 
+                            ? 'bg-green-100 text-green-800' 
+                            : job.type === 'Part Time'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {job.type}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-3">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          {job.location}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {formatDate(job.created_at)}
+                        </span>
+                      </div>
+
+                      <p className="text-gray-700 line-clamp-3">
+                        {job.description.substring(0, 200)}...
+                      </p>
+
+                      <div className="mt-4 flex justify-between items-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedJob(job);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          View Details
+                        </button>
+                        <a
+                          href={job.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Apply
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredJobs.length === 0 && !loading && (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <Search className="w-12 h-12 mx-auto" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
+                    <p className="text-gray-600">Try adjusting your filters or search terms</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Job Detail Modal */}
+      {selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedJob.title}</h2>
+                  <p className="text-gray-600 flex items-center gap-1">
+                    <Building className="w-4 h-4" />
+                    {selectedJob.company}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedJob(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
+                  {selectedJob.location}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {formatDate(selectedJob.created_at)}
+                </span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  selectedJob.type === 'Full Time' 
+                    ? 'bg-green-100 text-green-800' 
+                    : selectedJob.type === 'Part Time'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {selectedJob.type}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Job Description</h3>
+              <div className="text-gray-700 mb-6 whitespace-pre-line">
+                {selectedJob.description}
+              </div>
+
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">How to Apply</h3>
+              <div className="text-gray-700 mb-6">
+                {selectedJob.how_to_apply}
+              </div>
+
+              <div className="flex gap-3">
+                <a
+                  href={selectedJob.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Apply Now
+                </a>
+                {selectedJob.company_url && (
+                  <a
+                    href={selectedJob.company_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Company Website
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default GitHubJobsApp;
