@@ -1,0 +1,432 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { MapPin, Flame, AlertTriangle, Thermometer, Wind, Eye, Calendar, RefreshCw, Satellite, Activity } from 'lucide-react';
+
+const WildfireDetectionSystem = () => {
+  const [fires, setFires] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [selectedFire, setSelectedFire] = useState(null);
+  const [stats, setStats] = useState({ total: 0, high: 0, medium: 0, low: 0 });
+  const [timeRange, setTimeRange] = useState('1'); // days
+  const [sortBy, setSortBy] = useState('brightness');
+  const mapRef = useRef(null);
+
+  // NASA FIRMS API endpoint (using MODIS data)
+  const NASA_API_BASE = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
+  const MAP_KEY = 'YOUR_NASA_API_KEY'; // In production, this would be secure
+
+  // For demo purposes, we'll use simulated data that resembles NASA FIRMS format
+  const generateSimulatedFireData = () => {
+    const fires = [];
+    const regions = [
+      { name: 'California', lat: 37.0, lon: -119.0, radius: 3 },
+      { name: 'Australia', lat: -25.0, lon: 135.0, radius: 8 },
+      { name: 'Amazon', lat: -3.0, lon: -60.0, radius: 5 },
+      { name: 'Siberia', lat: 65.0, lon: 105.0, radius: 6 },
+      { name: 'Canada', lat: 60.0, lon: -95.0, radius: 4 }
+    ];
+
+    regions.forEach(region => {
+      const numFires = Math.floor(Math.random() * 15) + 5;
+      for (let i = 0; i < numFires; i++) {
+        const fire = {
+          id: Math.random().toString(36).substr(2, 9),
+          latitude: region.lat + (Math.random() - 0.5) * region.radius,
+          longitude: region.lon + (Math.random() - 0.5) * region.radius,
+          brightness: Math.floor(Math.random() * 200) + 300, // Kelvin temperature
+          confidence: Math.floor(Math.random() * 40) + 60,
+          frp: Math.random() * 500 + 10, // Fire Radiative Power
+          acq_date: new Date(Date.now() - Math.random() * 86400000 * parseInt(timeRange)).toISOString().split('T')[0],
+          acq_time: String(Math.floor(Math.random() * 2400)).padStart(4, '0'),
+          satellite: Math.random() > 0.5 ? 'Terra' : 'Aqua',
+          instrument: 'MODIS',
+          region: region.name,
+          track: Math.random() * 360,
+          version: '6.1NRT'
+        };
+        fires.push(fire);
+      }
+    });
+
+    return fires.sort((a, b) => {
+      switch (sortBy) {
+        case 'brightness': return b.brightness - a.brightness;
+        case 'confidence': return b.confidence - a.confidence;
+        case 'frp': return b.frp - a.frp;
+        case 'date': return new Date(b.acq_date) - new Date(a.acq_date);
+        default: return b.brightness - a.brightness;
+      }
+    });
+  };
+
+  const calculateStats = (fireData) => {
+    const total = fireData.length;
+    const high = fireData.filter(f => f.confidence >= 80).length;
+    const medium = fireData.filter(f => f.confidence >= 60 && f.confidence < 80).length;
+    const low = fireData.filter(f => f.confidence < 60).length;
+    return { total, high, medium, low };
+  };
+
+  const getFireSeverity = (fire) => {
+    if (fire.confidence >= 80 && fire.brightness >= 350) return 'high';
+    if (fire.confidence >= 60 && fire.brightness >= 320) return 'medium';
+    return 'low';
+  };
+
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'high': return 'bg-red-500';
+      case 'medium': return 'bg-orange-500';
+      case 'low': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const fetchFireData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // In a real application, you would fetch from NASA FIRMS API:
+      // const response = await fetch(`${NASA_API_BASE}/${MAP_KEY}/MODIS_NRT/world/${timeRange}`);
+      
+      // For demo, we simulate the API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const simulatedData = generateSimulatedFireData();
+      
+      setFires(simulatedData);
+      setStats(calculateStats(simulatedData));
+      setLastUpdate(new Date());
+    } catch (err) {
+      setError('Failed to fetch fire data from NASA FIRMS API');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFireData();
+  }, [timeRange, sortBy]);
+
+  const FireMap = () => (
+    <div className="relative bg-gradient-to-b from-blue-100 to-green-100 rounded-lg overflow-hidden" style={{ height: '400px' }}>
+      <div className="absolute inset-0 bg-cover bg-center opacity-20" 
+           style={{
+             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+           }}>
+      </div>
+      
+      <div className="absolute top-4 left-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm">
+        🌍 Global Fire Map
+      </div>
+      
+      <div className="absolute inset-4 overflow-hidden">
+        {fires.slice(0, 50).map((fire) => {
+          const severity = getFireSeverity(fire);
+          const x = ((fire.longitude + 180) / 360) * 100;
+          const y = ((90 - fire.latitude) / 180) * 100;
+          
+          return (
+            <div
+              key={fire.id}
+              className={`absolute w-3 h-3 rounded-full ${getSeverityColor(severity)} cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:scale-150 transition-transform`}
+              style={{ left: `${x}%`, top: `${y}%` }}
+              onClick={() => setSelectedFire(fire)}
+              title={`${fire.region} - Confidence: ${fire.confidence}%`}
+            >
+              <div className={`w-full h-full rounded-full animate-ping ${getSeverityColor(severity)} opacity-75`}></div>
+            </div>
+          );
+        })}
+      </div>
+      
+      <div className="absolute bottom-4 right-4 bg-white bg-opacity-90 p-2 rounded text-xs">
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-red-500 rounded-full mr-1"></div>
+            <span>High Risk</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-orange-500 rounded-full mr-1"></div>
+            <span>Medium</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-yellow-500 rounded-full mr-1"></div>
+            <span>Low</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const FireCard = ({ fire }) => {
+    const severity = getFireSeverity(fire);
+    const severityColor = getSeverityColor(severity);
+    
+    return (
+      <div 
+        className={`bg-white rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow cursor-pointer border-l-4 ${
+          severity === 'high' ? 'border-red-500' : 
+          severity === 'medium' ? 'border-orange-500' : 'border-yellow-500'
+        }`}
+        onClick={() => setSelectedFire(fire)}
+      >
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex items-center space-x-2">
+            <Flame className={`w-5 h-5 ${
+              severity === 'high' ? 'text-red-500' : 
+              severity === 'medium' ? 'text-orange-500' : 'text-yellow-500'
+            }`} />
+            <span className="font-semibold text-gray-800">{fire.region}</span>
+          </div>
+          <span className={`px-2 py-1 rounded-full text-xs text-white ${severityColor}`}>
+            {severity.toUpperCase()}
+          </span>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+          <div className="flex items-center">
+            <Thermometer className="w-4 h-4 mr-1" />
+            {fire.brightness}K
+          </div>
+          <div className="flex items-center">
+            <Activity className="w-4 h-4 mr-1" />
+            {fire.frp.toFixed(1)} MW
+          </div>
+          <div className="flex items-center">
+            <Eye className="w-4 h-4 mr-1" />
+            {fire.confidence}%
+          </div>
+          <div className="flex items-center">
+            <Satellite className="w-4 h-4 mr-1" />
+            {fire.satellite}
+          </div>
+        </div>
+        
+        <div className="mt-2 text-xs text-gray-500">
+          {fire.acq_date} at {fire.acq_time.slice(0,2)}:{fire.acq_time.slice(2,4)}
+        </div>
+      </div>
+    );
+  };
+
+  const StatsCard = ({ title, value, icon: Icon, color }) => (
+    <div className="bg-white rounded-lg p-6 shadow-md">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
+        </div>
+        <Icon className={`w-8 h-8 ${color}`} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                🔥 Wildfire Detection System
+              </h1>
+              <p className="text-gray-600">
+                Real-time wildfire monitoring using NASA FIRMS satellite data
+              </p>
+            </div>
+            
+            <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
+              <select 
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="1">Last 24 hours</option>
+                <option value="3">Last 3 days</option>
+                <option value="7">Last 7 days</option>
+              </select>
+              
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="brightness">Sort by Temperature</option>
+                <option value="confidence">Sort by Confidence</option>
+                <option value="frp">Sort by Power</option>
+                <option value="date">Sort by Date</option>
+              </select>
+              
+              <button
+                onClick={fetchFireData}
+                disabled={loading}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+          </div>
+          
+          {lastUpdate && (
+            <div className="mt-4 text-sm text-gray-500">
+              Last updated: {lastUpdate.toLocaleString()}
+            </div>
+          )}
+        </div>
+
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <StatsCard 
+            title="Total Active Fires" 
+            value={stats.total} 
+            icon={Flame} 
+            color="text-orange-500" 
+          />
+          <StatsCard 
+            title="High Risk" 
+            value={stats.high} 
+            icon={AlertTriangle} 
+            color="text-red-500" 
+          />
+          <StatsCard 
+            title="Medium Risk" 
+            value={stats.medium} 
+            icon={Thermometer} 
+            color="text-orange-500" 
+          />
+          <StatsCard 
+            title="Low Risk" 
+            value={stats.low} 
+            icon={Eye} 
+            color="text-yellow-500" 
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Map */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Fire Detection Map</h2>
+            {loading ? (
+              <div className="h-96 flex items-center justify-center">
+                <div className="text-center">
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500" />
+                  <p>Loading NASA satellite data...</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="h-96 flex items-center justify-center">
+                <div className="text-center text-red-600">
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+                  <p>{error}</p>
+                </div>
+              </div>
+            ) : (
+              <FireMap />
+            )}
+          </div>
+
+          {/* Fire Details */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              {selectedFire ? 'Fire Details' : 'Recent Detections'}
+            </h2>
+            
+            {selectedFire ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">{selectedFire.region}</h3>
+                  <button 
+                    onClick={() => setSelectedFire(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-sm text-gray-600">Brightness Temperature</div>
+                    <div className="text-xl font-bold">{selectedFire.brightness}K</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-sm text-gray-600">Confidence Level</div>
+                    <div className="text-xl font-bold">{selectedFire.confidence}%</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-sm text-gray-600">Fire Radiative Power</div>
+                    <div className="text-xl font-bold">{selectedFire.frp.toFixed(1)} MW</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-sm text-gray-600">Satellite</div>
+                    <div className="text-xl font-bold">{selectedFire.satellite}</div>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 p-4 rounded">
+                  <div className="flex items-center mb-2">
+                    <MapPin className="w-4 h-4 mr-2 text-blue-600" />
+                    <span className="font-semibold">Location</span>
+                  </div>
+                  <div className="text-sm">
+                    Latitude: {selectedFire.latitude.toFixed(4)}°<br/>
+                    Longitude: {selectedFire.longitude.toFixed(4)}°
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 p-4 rounded">
+                  <div className="flex items-center mb-2">
+                    <Calendar className="w-4 h-4 mr-2 text-green-600" />
+                    <span className="font-semibold">Detection Info</span>
+                  </div>
+                  <div className="text-sm">
+                    Date: {selectedFire.acq_date}<br/>
+                    Time: {selectedFire.acq_time.slice(0,2)}:{selectedFire.acq_time.slice(2,4)} UTC<br/>
+                    Instrument: {selectedFire.instrument}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {fires.slice(0, 8).map(fire => (
+                  <FireCard key={fire.id} fire={fire} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* API Information */}
+        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">About the Data</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div>
+              <h3 className="font-semibold text-blue-600 mb-2">Data Source</h3>
+              <p className="text-gray-600">
+                NASA FIRMS (Fire Information for Resource Management System) provides near real-time fire data from MODIS and VIIRS satellites.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-600 mb-2">Detection Method</h3>
+              <p className="text-gray-600">
+                Satellites detect thermal anomalies using infrared sensors. Brightness temperature above 320K with high confidence indicates active fires.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-purple-600 mb-2">Update Frequency</h3>
+              <p className="text-gray-600">
+                Data is updated every 3-6 hours as satellites orbit Earth. Terra and Aqua satellites provide global coverage twice daily.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default WildfireDetectionSystem;
