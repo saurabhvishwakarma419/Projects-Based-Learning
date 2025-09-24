@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Flame, AlertTriangle, Thermometer, Wind, Eye, Calendar, RefreshCw, Satellite, Activity } from 'lucide-react';
 
