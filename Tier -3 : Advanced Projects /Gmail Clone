@@ -1,1 +1,428 @@
+import React, { useState, useEffect } from 'react';
+import { Search, Menu, Settings, Grid3X3, Bell, User, Star, Trash2, Archive, Mail, Send, Inbox, Clock, Tag, ChevronDown, Paperclip, Smile, Link, Image, MoreHorizontal, X } from 'lucide-react';
 
+const GmailClone = () => {
+  const [selectedFolder, setSelectedFolder] = useState('inbox');
+  const [selectedEmails, setSelectedEmails] = useState(new Set());
+  const [showCompose, setShowCompose] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Sample email data
+  const [emails, setEmails] = useState([
+    {
+      id: 1,
+      from: 'LinkedIn',
+      fromEmail: 'notifications@linkedin.com',
+      subject: 'You have 3 new connection requests',
+      preview: 'Sarah Johnson, Mike Chen, and Alex Rivera would like to connect with you on LinkedIn...',
+      time: '2:30 PM',
+      read: false,
+      starred: false,
+      folder: 'inbox',
+      body: 'Hello,\n\nYou have received new connection requests on LinkedIn. Click to view and respond to these requests.\n\nBest regards,\nLinkedIn Team'
+    },
+    {
+      id: 2,
+      from: 'GitHub',
+      fromEmail: 'noreply@github.com',
+      subject: 'Your pull request has been merged',
+      preview: 'Congratulations! Your pull request #342 "Add responsive design" has been successfully merged...',
+      time: '1:45 PM',
+      read: true,
+      starred: true,
+      folder: 'inbox',
+      body: 'Hi there,\n\nGreat news! Your pull request has been reviewed and merged into the main branch. Thank you for your contribution.\n\nHappy coding!\nGitHub Team'
+    },
+    {
+      id: 3,
+      from: 'Netflix',
+      fromEmail: 'info@netflix.com',
+      subject: 'New episodes of your favorite shows are now available',
+      preview: 'The latest episodes of Stranger Things, The Crown, and Wednesday are now streaming...',
+      time: '11:20 AM',
+      read: true,
+      starred: false,
+      folder: 'inbox',
+      body: 'Hello Netflix fan,\n\nWe\'re excited to let you know that new episodes of your favorite shows are now available for streaming.\n\nEnjoy watching!\nThe Netflix Team'
+    },
+    {
+      id: 4,
+      from: 'Amazon',
+      fromEmail: 'shipment@amazon.com',
+      subject: 'Your package has been delivered',
+      preview: 'Your order #123-456-789 has been successfully delivered to your address...',
+      time: 'Yesterday',
+      read: false,
+      starred: false,
+      folder: 'inbox',
+      body: 'Dear Customer,\n\nYour Amazon package has been delivered. We hope you enjoy your purchase!\n\nThank you for shopping with us.\nAmazon Delivery Team'
+    },
+    {
+      id: 5,
+      from: 'Draft',
+      fromEmail: '',
+      subject: 'Meeting notes for next week',
+      preview: 'Here are the key points we need to discuss in our upcoming team meeting...',
+      time: 'Draft',
+      read: false,
+      starred: false,
+      folder: 'drafts',
+      body: 'Team,\n\nHere are the agenda items for our meeting:\n1. Project updates\n2. Budget review\n3. Timeline adjustments\n\nPlease review before the meeting.\n\nThanks!'
+    }
+  ]);
+
+  const folders = [
+    { id: 'inbox', name: 'Inbox', icon: Inbox, count: emails.filter(e => e.folder === 'inbox' && !e.read).length },
+    { id: 'starred', name: 'Starred', icon: Star, count: emails.filter(e => e.starred).length },
+    { id: 'sent', name: 'Sent', icon: Send, count: 0 },
+    { id: 'drafts', name: 'Drafts', icon: Mail, count: emails.filter(e => e.folder === 'drafts').length },
+    { id: 'archive', name: 'Archive', icon: Archive, count: 0 },
+    { id: 'spam', name: 'Spam', icon: Tag, count: 0 },
+    { id: 'trash', name: 'Trash', icon: Trash2, count: 0 }
+  ];
+
+  const toggleEmailSelection = (emailId) => {
+    const newSelected = new Set(selectedEmails);
+    if (newSelected.has(emailId)) {
+      newSelected.delete(emailId);
+    } else {
+      newSelected.add(emailId);
+    }
+    setSelectedEmails(newSelected);
+  };
+
+  const toggleStar = (emailId) => {
+    setEmails(emails.map(email => 
+      email.id === emailId ? { ...email, starred: !email.starred } : email
+    ));
+  };
+
+  const markAsRead = (emailId) => {
+    setEmails(emails.map(email => 
+      email.id === emailId ? { ...email, read: true } : email
+    ));
+  };
+
+  const deleteEmails = () => {
+    const remainingEmails = emails.filter(email => !selectedEmails.has(email.id));
+    setEmails(remainingEmails);
+    setSelectedEmails(new Set());
+  };
+
+  const filteredEmails = emails.filter(email => {
+    if (selectedFolder === 'starred') return email.starred;
+    if (selectedFolder === 'inbox') return email.folder === 'inbox';
+    return email.folder === selectedFolder;
+  });
+
+  const ComposeModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4">
+        <div className="flex items-center justify-between p-4 border-b bg-gray-50 rounded-t-lg">
+          <h3 className="text-lg font-medium">New Message</h3>
+          <div className="flex gap-2">
+            <button className="p-1 hover:bg-gray-200 rounded">
+              <MoreHorizontal size={16} />
+            </button>
+            <button 
+              onClick={() => setShowCompose(false)}
+              className="p-1 hover:bg-gray-200 rounded"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="flex items-center">
+            <span className="w-12 text-sm text-gray-600">To:</span>
+            <input 
+              type="email" 
+              className="flex-1 p-2 border-b border-gray-300 focus:border-blue-500 outline-none"
+              placeholder="Recipients"
+            />
+          </div>
+          <div className="flex items-center">
+            <span className="w-12 text-sm text-gray-600">Subject:</span>
+            <input 
+              type="text" 
+              className="flex-1 p-2 border-b border-gray-300 focus:border-blue-500 outline-none"
+              placeholder="Subject"
+            />
+          </div>
+          <textarea 
+            className="w-full h-64 p-3 border border-gray-300 rounded resize-none focus:border-blue-500 outline-none"
+            placeholder="Compose your message..."
+          />
+        </div>
+        <div className="flex items-center justify-between p-4 border-t bg-gray-50">
+          <div className="flex gap-2">
+            <button className="p-2 hover:bg-gray-200 rounded" title="Attach files">
+              <Paperclip size={16} />
+            </button>
+            <button className="p-2 hover:bg-gray-200 rounded" title="Insert link">
+              <Link size={16} />
+            </button>
+            <button className="p-2 hover:bg-gray-200 rounded" title="Insert emoji">
+              <Smile size={16} />
+            </button>
+            <button className="p-2 hover:bg-gray-200 rounded" title="Insert image">
+              <Image size={16} />
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded">
+              Save Draft
+            </button>
+            <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2">
+              <Send size={16} />
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const EmailView = ({ email }) => (
+    <div className="flex-1 bg-white">
+      <div className="p-6 border-b">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-medium mb-2">{email.subject}</h2>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span className="font-medium">{email.from}</span>
+              {email.fromEmail && <span>&lt;{email.fromEmail}&gt;</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">{email.time}</span>
+            <button 
+              onClick={() => toggleStar(email.id)}
+              className={`p-1 rounded hover:bg-gray-100 ${email.starred ? 'text-yellow-500' : 'text-gray-400'}`}
+            >
+              <Star size={16} fill={email.starred ? 'currentColor' : 'none'} />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+          {email.body}
+        </div>
+      </div>
+      <div className="p-6 border-t bg-gray-50">
+        <div className="flex gap-2">
+          <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            Reply
+          </button>
+          <button className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+            Reply All
+          </button>
+          <button className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+            Forward
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-100">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-2 hover:bg-gray-100 rounded"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="flex items-center gap-2">
+              <Mail size={24} className="text-red-500" />
+              <span className="text-xl text-gray-700">Gmail</span>
+            </div>
+          </div>
+          
+          <div className="flex-1 max-w-2xl mx-8">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input 
+                type="text" 
+                placeholder="Search mail" 
+                className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button className="p-2 hover:bg-gray-100 rounded">
+              <Settings size={20} />
+            </button>
+            <button className="p-2 hover:bg-gray-100 rounded">
+              <Grid3X3 size={20} />
+            </button>
+            <button className="p-2 hover:bg-gray-100 rounded">
+              <Bell size={20} />
+            </button>
+            <button className="p-2 hover:bg-gray-100 rounded bg-blue-600 text-white">
+              <User size={20} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
+          <div className="p-4">
+            <button 
+              onClick={() => setShowCompose(true)}
+              className={`flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition-colors ${sidebarCollapsed ? 'w-12 h-12 justify-center' : 'w-full'}`}
+            >
+              <Mail size={20} />
+              {!sidebarCollapsed && <span className="font-medium">Compose</span>}
+            </button>
+          </div>
+          
+          <nav className="px-2">
+            {folders.map((folder) => {
+              const Icon = folder.icon;
+              return (
+                <button
+                  key={folder.id}
+                  onClick={() => setSelectedFolder(folder.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-r-full hover:bg-gray-100 transition-colors ${
+                    selectedFolder === folder.id ? 'bg-red-100 text-red-700 font-medium' : 'text-gray-700'
+                  } ${sidebarCollapsed ? 'justify-center' : ''}`}
+                >
+                  <Icon size={20} />
+                  {!sidebarCollapsed && (
+                    <>
+                      <span className="flex-1 text-left">{folder.name}</span>
+                      {folder.count > 0 && (
+                        <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full">
+                          {folder.count}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 flex">
+          {currentEmail ? (
+            <>
+              <EmailView email={currentEmail} />
+              <button 
+                onClick={() => setCurrentEmail(null)}
+                className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded z-10"
+              >
+                <X size={20} />
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Email List */}
+              <div className="flex-1 bg-white">
+                {/* Toolbar */}
+                <div className="border-b border-gray-200 p-3 flex items-center gap-2">
+                  <input 
+                    type="checkbox" 
+                    className="rounded"
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedEmails(new Set(filteredEmails.map(email => email.id)));
+                      } else {
+                        setSelectedEmails(new Set());
+                      }
+                    }}
+                  />
+                  <button className="p-2 hover:bg-gray-100 rounded" title="Archive">
+                    <Archive size={16} />
+                  </button>
+                  <button 
+                    onClick={deleteEmails}
+                    className="p-2 hover:bg-gray-100 rounded" 
+                    title="Delete"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <button className="p-2 hover:bg-gray-100 rounded" title="Mark as read">
+                    <Mail size={16} />
+                  </button>
+                  <button className="p-2 hover:bg-gray-100 rounded" title="Snooze">
+                    <Clock size={16} />
+                  </button>
+                </div>
+
+                {/* Email List */}
+                <div className="divide-y divide-gray-200">
+                  {filteredEmails.map((email) => (
+                    <div 
+                      key={email.id}
+                      className={`flex items-center p-3 hover:shadow-sm cursor-pointer transition-all ${
+                        !email.read ? 'bg-white font-medium' : 'bg-gray-50'
+                      } ${selectedEmails.has(email.id) ? 'bg-blue-50' : ''}`}
+                      onClick={() => {
+                        setCurrentEmail(email);
+                        markAsRead(email.id);
+                      }}
+                    >
+                      <input 
+                        type="checkbox" 
+                        className="mr-3 rounded"
+                        checked={selectedEmails.has(email.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleEmailSelection(email.id);
+                        }}
+                      />
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStar(email.id);
+                        }}
+                        className={`mr-3 p-1 rounded hover:bg-gray-200 ${
+                          email.starred ? 'text-yellow-500' : 'text-gray-300'
+                        }`}
+                      >
+                        <Star size={16} fill={email.starred ? 'currentColor' : 'none'} />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`truncate ${!email.read ? 'font-semibold' : ''}`}>
+                            {email.from}
+                          </span>
+                          <span className="text-sm text-gray-500 ml-2 flex-shrink-0">
+                            {email.time}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-900 truncate font-medium">
+                          {email.subject}
+                        </div>
+                        <div className="text-sm text-gray-600 truncate">
+                          {email.preview}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Compose Modal */}
+      {showCompose && <ComposeModal />}
+    </div>
+  );
+};
+
+export default GmailClone;
