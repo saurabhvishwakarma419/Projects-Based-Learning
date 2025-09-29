@@ -1,0 +1,287 @@
+import React, { useState } from 'react';
+import { Search, MoreVertical, Phone, Video, Lock, Smile, Paperclip, Mic, Send, Check, CheckCheck, Settings, Edit, Archive, Menu } from 'lucide-react';
+
+export default function SignalClone() {
+  const [selectedChat, setSelectedChat] = useState(1);
+  const [message, setMessage] = useState('');
+  const [chats, setChats] = useState([
+    {
+      id: 1,
+      name: 'Sarah Wilson',
+      avatar: 'SW',
+      lastMessage: 'Thanks for the update! See you tomorrow.',
+      time: '2:34 PM',
+      unread: 0,
+      online: true,
+      messages: [
+        { id: 1, text: 'Hey! How are you?', sent: false, time: '2:30 PM', status: 'read' },
+        { id: 2, text: 'I\'m good! Just finished that project.', sent: true, time: '2:31 PM', status: 'read' },
+        { id: 3, text: 'That\'s great! How did it go?', sent: false, time: '2:32 PM', status: 'read' },
+        { id: 4, text: 'Really well! The client loved it.', sent: true, time: '2:33 PM', status: 'read' },
+        { id: 5, text: 'Thanks for the update! See you tomorrow.', sent: false, time: '2:34 PM', status: 'read' }
+      ]
+    },
+    {
+      id: 2,
+      name: 'Tech Team',
+      avatar: 'TT',
+      lastMessage: 'John: Don\'t forget the meeting at 3 PM',
+      time: '1:45 PM',
+      unread: 3,
+      online: false,
+      isGroup: true,
+      messages: [
+        { id: 1, text: 'Hey everyone!', sent: false, time: '1:20 PM', status: 'read', sender: 'John' },
+        { id: 2, text: 'Don\'t forget the meeting at 3 PM', sent: false, time: '1:45 PM', status: 'delivered', sender: 'John' }
+      ]
+    },
+    {
+      id: 3,
+      name: 'Michael Chen',
+      avatar: 'MC',
+      lastMessage: 'You: Perfect, talk soon! 👍',
+      time: '12:15 PM',
+      unread: 0,
+      online: false,
+      messages: [
+        { id: 1, text: 'Are we still on for lunch?', sent: false, time: '11:50 AM', status: 'read' },
+        { id: 2, text: 'Yes! See you at noon.', sent: true, time: '11:55 AM', status: 'read' },
+        { id: 3, text: 'Perfect, talk soon! 👍', sent: true, time: '12:15 PM', status: 'read' }
+      ]
+    },
+    {
+      id: 4,
+      name: 'Emma Rodriguez',
+      avatar: 'ER',
+      lastMessage: 'Got it, thanks!',
+      time: 'Yesterday',
+      unread: 0,
+      online: true,
+      messages: [
+        { id: 1, text: 'Can you send me those files?', sent: false, time: 'Yesterday', status: 'read' },
+        { id: 2, text: 'Sure, sending them now.', sent: true, time: 'Yesterday', status: 'read' },
+        { id: 3, text: 'Got it, thanks!', sent: false, time: 'Yesterday', status: 'read' }
+      ]
+    },
+    {
+      id: 5,
+      name: 'David Park',
+      avatar: 'DP',
+      lastMessage: 'Sounds good to me!',
+      time: 'Yesterday',
+      unread: 0,
+      online: false,
+      messages: [
+        { id: 1, text: 'Sounds good to me!', sent: false, time: 'Yesterday', status: 'read' }
+      ]
+    }
+  ]);
+
+  const currentChat = chats.find(chat => chat.id === selectedChat);
+
+  const handleSendMessage = () => {
+    if (message.trim()) {
+      const newMessage = {
+        id: currentChat.messages.length + 1,
+        text: message,
+        sent: true,
+        time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        status: 'sent'
+      };
+      
+      setChats(chats.map(chat => {
+        if (chat.id === selectedChat) {
+          return {
+            ...chat,
+            messages: [...chat.messages, newMessage],
+            lastMessage: `You: ${message}`,
+            time: 'Just now'
+          };
+        }
+        return chat;
+      }));
+      
+      setMessage('');
+    }
+  };
+
+  const Sidebar = () => (
+    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-screen">
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-semibold text-blue-600">Signal</h1>
+          <div className="flex gap-2">
+            <button className="p-2 hover:bg-gray-100 rounded-full">
+              <Edit className="w-5 h-5 text-gray-600" />
+            </button>
+            <button className="p-2 hover:bg-gray-100 rounded-full">
+              <Menu className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search"
+            className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {chats.map(chat => (
+          <div
+            key={chat.id}
+            onClick={() => setSelectedChat(chat.id)}
+            className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 ${
+              selectedChat === chat.id ? 'bg-blue-50' : ''
+            }`}
+          >
+            <div className="relative">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold text-white ${
+                chat.isGroup ? 'bg-purple-500' : 'bg-blue-500'
+              }`}>
+                {chat.avatar}
+              </div>
+              {chat.online && !chat.isGroup && (
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm truncate">{chat.name}</h3>
+                <span className="text-xs text-gray-500">{chat.time}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
+                {chat.unread > 0 && (
+                  <span className="ml-2 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {chat.unread}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const ChatHeader = () => (
+    <div className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${
+            currentChat.isGroup ? 'bg-purple-500' : 'bg-blue-500'
+          }`}>
+            {currentChat.avatar}
+          </div>
+          {currentChat.online && !currentChat.isGroup && (
+            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+          )}
+        </div>
+        <div>
+          <h2 className="font-semibold">{currentChat.name}</h2>
+          <p className="text-xs text-gray-500 flex items-center gap-1">
+            <Lock className="w-3 h-3" />
+            End-to-end encrypted
+          </p>
+        </div>
+      </div>
+      <div className="flex gap-4">
+        <button className="p-2 hover:bg-gray-100 rounded-full">
+          <Phone className="w-5 h-5 text-gray-600" />
+        </button>
+        <button className="p-2 hover:bg-gray-100 rounded-full">
+          <Video className="w-5 h-5 text-gray-600" />
+        </button>
+        <button className="p-2 hover:bg-gray-100 rounded-full">
+          <MoreVertical className="w-5 h-5 text-gray-600" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const MessageBubble = ({ msg }) => (
+    <div className={`flex ${msg.sent ? 'justify-end' : 'justify-start'} mb-3`}>
+      <div className={`max-w-md ${msg.sent ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'} rounded-2xl px-4 py-2`}>
+        {!msg.sent && currentChat.isGroup && (
+          <p className="text-xs font-semibold mb-1 text-gray-700">{msg.sender}</p>
+        )}
+        <p className="text-sm">{msg.text}</p>
+        <div className={`flex items-center justify-end gap-1 mt-1 ${msg.sent ? 'text-blue-100' : 'text-gray-500'}`}>
+          <span className="text-xs">{msg.time}</span>
+          {msg.sent && (
+            msg.status === 'read' ? (
+              <CheckCheck className="w-3 h-3" />
+            ) : msg.status === 'delivered' ? (
+              <CheckCheck className="w-3 h-3" />
+            ) : (
+              <Check className="w-3 h-3" />
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ChatArea = () => (
+    <div className="flex-1 flex flex-col bg-gray-50">
+      <ChatHeader />
+      
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex justify-center mb-4">
+          <div className="bg-yellow-100 border border-yellow-300 rounded-lg px-4 py-2 flex items-center gap-2">
+            <Lock className="w-4 h-4 text-yellow-700" />
+            <p className="text-xs text-yellow-700">
+              Messages are end-to-end encrypted. No one outside of this chat can read them.
+            </p>
+          </div>
+        </div>
+        
+        {currentChat.messages.map(msg => (
+          <MessageBubble key={msg.id} msg={msg} />
+        ))}
+      </div>
+
+      <div className="bg-white border-t border-gray-200 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <button className="p-2 hover:bg-gray-100 rounded-full">
+            <Paperclip className="w-5 h-5 text-gray-600" />
+          </button>
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            placeholder="Type a message..."
+            className="flex-1 px-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button className="p-2 hover:bg-gray-100 rounded-full">
+            <Smile className="w-5 h-5 text-gray-600" />
+          </button>
+          {message.trim() ? (
+            <button
+              onClick={handleSendMessage}
+              className="p-2 bg-blue-600 hover:bg-blue-700 rounded-full"
+            >
+              <Send className="w-5 h-5 text-white" />
+            </button>
+          ) : (
+            <button className="p-2 hover:bg-gray-100 rounded-full">
+              <Mic className="w-5 h-5 text-gray-600" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      <Sidebar />
+      <ChatArea />
+    </div>
+  );
+}
