@@ -1,1 +1,326 @@
+import React, { useState } from 'react';
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Home, Search, PlusSquare, Film, User, Smile } from 'lucide-react';
 
+const InstagramClone = () => {
+  const [posts, setPosts] = useState([
+    {
+      id: 1,
+      username: 'traveler_jane',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
+      image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=600&fit=crop',
+      likes: 1234,
+      caption: 'Mountain views never get old 🏔️',
+      comments: 45,
+      timestamp: '2 hours ago',
+      liked: false,
+      saved: false
+    },
+    {
+      id: 2,
+      username: 'foodie_mike',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike',
+      image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&h=600&fit=crop',
+      likes: 892,
+      caption: 'Best brunch spot in town! 🥞☕',
+      comments: 23,
+      timestamp: '5 hours ago',
+      liked: false,
+      saved: false
+    },
+    {
+      id: 3,
+      username: 'urban_explorer',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Urban',
+      image: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=600&h=600&fit=crop',
+      likes: 2341,
+      caption: 'City lights and night vibes ✨',
+      comments: 67,
+      timestamp: '1 day ago',
+      liked: false,
+      saved: false
+    }
+  ]);
+
+  const [stories] = useState([
+    { id: 1, username: 'Your Story', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=You', isYours: true },
+    { id: 2, username: 'sarah_joy', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah' },
+    { id: 3, username: 'alex_photo', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' },
+    { id: 4, username: 'emma_art', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma' },
+    { id: 5, username: 'john_doe', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John' },
+    { id: 6, username: 'lisa_travel', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Lisa' }
+  ]);
+
+  const [activeTab, setActiveTab] = useState('home');
+  const [commentText, setCommentText] = useState('');
+  const [showComments, setShowComments] = useState(null);
+
+  const toggleLike = (postId) => {
+    setPosts(posts.map(post => 
+      post.id === postId 
+        ? { ...post, liked: !post.liked, likes: post.liked ? post.likes - 1 : post.likes + 1 }
+        : post
+    ));
+  };
+
+  const toggleSave = (postId) => {
+    setPosts(posts.map(post => 
+      post.id === postId 
+        ? { ...post, saved: !post.saved }
+        : post
+    ));
+  };
+
+  const addComment = (postId) => {
+    if (commentText.trim()) {
+      setPosts(posts.map(post =>
+        post.id === postId
+          ? { ...post, comments: post.comments + 1 }
+          : post
+      ));
+      setCommentText('');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            Instagram
+          </h1>
+          <div className="flex items-center gap-4">
+            <button className="hover:bg-gray-100 p-2 rounded-full transition">
+              <Heart className="w-6 h-6" />
+            </button>
+            <button className="hover:bg-gray-100 p-2 rounded-full transition">
+              <MessageCircle className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto pt-20 pb-20 px-4">
+        {activeTab === 'home' && (
+          <>
+            {/* Stories */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {stories.map(story => (
+                  <div key={story.id} className="flex flex-col items-center gap-1 min-w-fit cursor-pointer">
+                    <div className={`w-16 h-16 rounded-full p-0.5 ${story.isYours ? 'bg-gray-300' : 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600'}`}>
+                      <div className="w-full h-full rounded-full border-2 border-white overflow-hidden bg-white">
+                        <img src={story.avatar} alt={story.username} className="w-full h-full object-cover" />
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-800 max-w-[64px] truncate">
+                      {story.isYours ? 'Your Story' : story.username}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Posts */}
+            {posts.map(post => (
+              <div key={post.id} className="bg-white border border-gray-200 rounded-lg mb-6">
+                {/* Post Header */}
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-0.5">
+                      <div className="w-full h-full rounded-full border-2 border-white overflow-hidden bg-white">
+                        <img src={post.avatar} alt={post.username} className="w-full h-full object-cover" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">{post.username}</p>
+                      <p className="text-xs text-gray-500">{post.timestamp}</p>
+                    </div>
+                  </div>
+                  <button className="hover:bg-gray-100 p-2 rounded-full transition">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Post Image */}
+                <img src={post.image} alt="Post" className="w-full aspect-square object-cover" />
+
+                {/* Post Actions */}
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => toggleLike(post.id)}
+                        className="hover:opacity-70 transition"
+                      >
+                        <Heart 
+                          className={`w-6 h-6 ${post.liked ? 'fill-red-500 text-red-500' : ''}`}
+                        />
+                      </button>
+                      <button 
+                        onClick={() => setShowComments(showComments === post.id ? null : post.id)}
+                        className="hover:opacity-70 transition"
+                      >
+                        <MessageCircle className="w-6 h-6" />
+                      </button>
+                      <button className="hover:opacity-70 transition">
+                        <Send className="w-6 h-6" />
+                      </button>
+                    </div>
+                    <button 
+                      onClick={() => toggleSave(post.id)}
+                      className="hover:opacity-70 transition"
+                    >
+                      <Bookmark className={`w-6 h-6 ${post.saved ? 'fill-black' : ''}`} />
+                    </button>
+                  </div>
+
+                  {/* Likes */}
+                  <p className="font-semibold text-sm mb-2">{post.likes.toLocaleString()} likes</p>
+
+                  {/* Caption */}
+                  <p className="text-sm">
+                    <span className="font-semibold mr-2">{post.username}</span>
+                    {post.caption}
+                  </p>
+
+                  {/* Comments */}
+                  {post.comments > 0 && (
+                    <button 
+                      onClick={() => setShowComments(showComments === post.id ? null : post.id)}
+                      className="text-sm text-gray-500 mt-2 hover:text-gray-700"
+                    >
+                      View all {post.comments} comments
+                    </button>
+                  )}
+
+                  {/* Comment Input */}
+                  {showComments === post.id && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <Smile className="w-6 h-6 text-gray-400 cursor-pointer hover:text-gray-600" />
+                        <input
+                          type="text"
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          placeholder="Add a comment..."
+                          className="flex-1 outline-none text-sm"
+                          onKeyPress={(e) => e.key === 'Enter' && addComment(post.id)}
+                        />
+                        {commentText && (
+                          <button 
+                            onClick={() => addComment(post.id)}
+                            className="text-blue-500 font-semibold text-sm hover:text-blue-700"
+                          >
+                            Post
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {activeTab === 'search' && (
+          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+            <Search className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+            <h2 className="text-xl font-semibold mb-2">Search & Explore</h2>
+            <p className="text-gray-500">Discover new content and accounts</p>
+          </div>
+        )}
+
+        {activeTab === 'create' && (
+          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+            <PlusSquare className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+            <h2 className="text-xl font-semibold mb-2">Create New Post</h2>
+            <p className="text-gray-500">Share your moments with the world</p>
+          </div>
+        )}
+
+        {activeTab === 'reels' && (
+          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+            <Film className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+            <h2 className="text-xl font-semibold mb-2">Reels</h2>
+            <p className="text-gray-500">Watch short, entertaining videos</p>
+          </div>
+        )}
+
+        {activeTab === 'profile' && (
+          <div className="bg-white border border-gray-200 rounded-lg p-8">
+            <div className="flex flex-col items-center mb-8">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-1 mb-4">
+                <div className="w-full h-full rounded-full border-4 border-white overflow-hidden bg-white">
+                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=You" alt="Profile" className="w-full h-full object-cover" />
+                </div>
+              </div>
+              <h2 className="text-xl font-semibold mb-1">your_username</h2>
+              <p className="text-gray-500 text-sm mb-4">Your bio goes here</p>
+              <button className="px-6 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition">
+                Edit Profile
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1 border-t border-gray-200 pt-4">
+              <div className="text-center">
+                <p className="font-semibold text-lg">42</p>
+                <p className="text-gray-500 text-sm">Posts</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-lg">1,234</p>
+                <p className="text-gray-500 text-sm">Followers</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-lg">567</p>
+                <p className="text-gray-500 text-sm">Following</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div className="max-w-5xl mx-auto px-4 py-2">
+          <div className="flex items-center justify-around">
+            <button 
+              onClick={() => setActiveTab('home')}
+              className={`p-2 rounded-full transition ${activeTab === 'home' ? 'text-black' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <Home className="w-7 h-7" fill={activeTab === 'home' ? 'currentColor' : 'none'} />
+            </button>
+            <button 
+              onClick={() => setActiveTab('search')}
+              className={`p-2 rounded-full transition ${activeTab === 'search' ? 'text-black' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <Search className="w-7 h-7" />
+            </button>
+            <button 
+              onClick={() => setActiveTab('create')}
+              className={`p-2 rounded-full transition ${activeTab === 'create' ? 'text-black' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <PlusSquare className="w-7 h-7" />
+            </button>
+            <button 
+              onClick={() => setActiveTab('reels')}
+              className={`p-2 rounded-full transition ${activeTab === 'reels' ? 'text-black' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <Film className="w-7 h-7" />
+            </button>
+            <button 
+              onClick={() => setActiveTab('profile')}
+              className={`p-2 rounded-full transition ${activeTab === 'profile' ? 'text-black' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <User className="w-7 h-7" fill={activeTab === 'profile' ? 'currentColor' : 'none'} />
+            </button>
+          </div>
+        </div>
+      </nav>
+    </div>
+  );
+};
+
+export default InstagramClone;
