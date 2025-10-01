@@ -1,1 +1,564 @@
 
+import React, { useState, useEffect } from 'react';
+import { Car, MapPin, Navigation, Clock, AlertCircle, CheckCircle, Search, DollarSign, Zap, Info } from 'lucide-react';
+
+export default function SmartParkingSystem() {
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [time, setTime] = useState(0);
+  const [selectedLot, setSelectedLot] = useState(null);
+  const [searchRadius, setSearchRadius] = useState(2);
+  const [filterType, setFilterType] = useState('all');
+  const [userLocation, setUserLocation] = useState({ lat: 40.7580, lng: -73.9855 });
+
+  const [parkingLots, setParkingLots] = useState([
+    {
+      id: 1,
+      name: 'Downtown Mall Parking',
+      type: 'shopping',
+      location: { lat: 40.7580, lng: -73.9855 },
+      distance: 0.3,
+      total: 200,
+      available: 45,
+      reserved: 8,
+      evCharging: 12,
+      handicap: 10,
+      rates: { hourly: 5, daily: 30 },
+      amenities: ['Covered', 'Security', 'EV Charging'],
+      floors: 3,
+      status: 'active',
+      avgExitTime: 15,
+      spots: generateSpots(200, 45)
+    },
+    {
+      id: 2,
+      name: 'City Center Plaza',
+      type: 'commercial',
+      location: { lat: 40.7590, lng: -73.9845 },
+      distance: 0.5,
+      total: 150,
+      available: 12,
+      reserved: 5,
+      evCharging: 8,
+      handicap: 8,
+      rates: { hourly: 6, daily: 35 },
+      amenities: ['Security', 'EV Charging', '24/7'],
+      floors: 2,
+      status: 'active',
+      avgExitTime: 8,
+      spots: generateSpots(150, 12)
+    },
+    {
+      id: 3,
+      name: 'Park Plaza Garage',
+      type: 'residential',
+      location: { lat: 40.7570, lng: -73.9865 },
+      distance: 0.8,
+      total: 180,
+      available: 87,
+      reserved: 15,
+      evCharging: 10,
+      handicap: 12,
+      rates: { hourly: 4, daily: 25 },
+      amenities: ['Covered', 'EV Charging'],
+      floors: 4,
+      status: 'active',
+      avgExitTime: 20,
+      spots: generateSpots(180, 87)
+    },
+    {
+      id: 4,
+      name: 'Station Parking Hub',
+      type: 'transit',
+      location: { lat: 40.7560, lng: -73.9875 },
+      distance: 1.2,
+      total: 120,
+      available: 3,
+      reserved: 2,
+      evCharging: 6,
+      handicap: 8,
+      rates: { hourly: 3, daily: 20 },
+      amenities: ['Security', '24/7', 'Bike Racks'],
+      floors: 2,
+      status: 'active',
+      avgExitTime: 5,
+      spots: generateSpots(120, 3)
+    },
+    {
+      id: 5,
+      name: 'Riverside Complex',
+      type: 'commercial',
+      location: { lat: 40.7600, lng: -73.9840 },
+      distance: 1.5,
+      total: 250,
+      available: 134,
+      reserved: 20,
+      evCharging: 15,
+      handicap: 15,
+      rates: { hourly: 5, daily: 28 },
+      amenities: ['Covered', 'Security', 'EV Charging', '24/7'],
+      floors: 5,
+      status: 'active',
+      avgExitTime: 25,
+      spots: generateSpots(250, 134)
+    },
+    {
+      id: 6,
+      name: 'Market Street Lot',
+      type: 'shopping',
+      location: { lat: 40.7550, lng: -73.9860 },
+      distance: 1.8,
+      total: 90,
+      available: 56,
+      reserved: 4,
+      evCharging: 4,
+      handicap: 6,
+      rates: { hourly: 4, daily: 22 },
+      amenities: ['Security', 'EV Charging'],
+      floors: 1,
+      status: 'active',
+      avgExitTime: 12,
+      spots: generateSpots(90, 56)
+    }
+  ]);
+
+  function generateSpots(total, available) {
+    const spots = [];
+    for (let i = 1; i <= total; i++) {
+      spots.push({
+        id: i,
+        status: i <= available ? 'available' : 'occupied',
+        type: i <= 8 ? 'handicap' : i <= 20 ? 'ev' : 'regular'
+      });
+    }
+    return spots;
+  }
+
+  const [route, setRoute] = useState(null);
+
+  useEffect(() => {
+    if (!isSimulating) return;
+
+    const interval = setInterval(() => {
+      setTime(t => t + 1);
+
+      setParkingLots(prev => prev.map(lot => {
+        const change = Math.random() > 0.5 ? 1 : -1;
+        const amount = Math.floor(Math.random() * 3);
+        let newAvailable = lot.available + (change * amount);
+        newAvailable = Math.max(0, Math.min(lot.total - lot.reserved, newAvailable));
+
+        const updatedSpots = lot.spots.map((spot, idx) => {
+          if (spot.type === 'regular' && Math.random() > 0.95) {
+            return { ...spot, status: spot.status === 'available' ? 'occupied' : 'available' };
+          }
+          return spot;
+        });
+
+        const actualAvailable = updatedSpots.filter(s => s.status === 'available').length;
+
+        return {
+          ...lot,
+          available: actualAvailable,
+          spots: updatedSpots,
+          avgExitTime: lot.avgExitTime + (Math.random() > 0.5 ? 1 : -1)
+        };
+      }));
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isSimulating]);
+
+  const getAvailabilityColor = (available, total) => {
+    const percent = (available / total) * 100;
+    if (percent < 5) return 'text-red-500';
+    if (percent < 15) return 'text-orange-500';
+    if (percent < 30) return 'text-yellow-500';
+    return 'text-green-500';
+  };
+
+  const getStatusColor = (available, total) => {
+    const percent = (available / total) * 100;
+    if (percent < 5) return 'bg-red-500';
+    if (percent < 15) return 'bg-orange-500';
+    if (percent < 30) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  const handleNavigate = (lot) => {
+    setSelectedLot(lot.id);
+    setRoute({
+      destination: lot.name,
+      distance: lot.distance,
+      eta: Math.round(lot.distance * 3),
+      steps: [
+        'Head north on Current Street',
+        `Turn right onto ${lot.name.split(' ')[0]} Avenue`,
+        'Parking entrance on the right'
+      ]
+    });
+  };
+
+  const handleReserve = (lotId) => {
+    setParkingLots(prev => prev.map(lot => {
+      if (lot.id === lotId && lot.available > 0) {
+        return {
+          ...lot,
+          available: lot.available - 1,
+          reserved: lot.reserved + 1
+        };
+      }
+      return lot;
+    }));
+  };
+
+  const filteredLots = parkingLots
+    .filter(lot => filterType === 'all' || lot.type === filterType)
+    .filter(lot => lot.distance <= searchRadius)
+    .sort((a, b) => {
+      if (a.available === 0 && b.available > 0) return 1;
+      if (a.available > 0 && b.available === 0) return -1;
+      return a.distance - b.distance;
+    });
+
+  const totalSpots = parkingLots.reduce((sum, lot) => sum + lot.total, 0);
+  const totalAvailable = parkingLots.reduce((sum, lot) => sum + lot.available, 0);
+  const occupancyRate = Math.round(((totalSpots - totalAvailable) / totalSpots) * 100);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold mb-3 bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+            Smart Parking System
+          </h1>
+          <p className="text-gray-300 text-lg">Find, Reserve & Navigate to Available Parking</p>
+        </div>
+
+        {/* Control Panel */}
+        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 mb-6 shadow-2xl border border-slate-700">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <button
+              onClick={() => setIsSimulating(!isSimulating)}
+              className={`px-8 py-3 rounded-lg font-semibold transition-all shadow-lg ${
+                isSimulating 
+                  ? 'bg-red-500 hover:bg-red-600 shadow-red-500/50' 
+                  : 'bg-green-500 hover:bg-green-600 shadow-green-500/50'
+              }`}
+            >
+              {isSimulating ? '⏸ Pause Updates' : '▶ Start Live Updates'}
+            </button>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-slate-700/50 px-4 py-2 rounded-lg">
+                <Clock size={20} className="text-purple-400" />
+                <span className="font-mono text-lg">{Math.floor(time / 60)}:{(time % 60).toString().padStart(2, '0')}</span>
+              </div>
+              
+              <div className="flex items-center gap-2 bg-slate-700/50 px-4 py-2 rounded-lg">
+                <MapPin size={20} className="text-pink-400" />
+                <span className="text-sm">Current Location</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 border border-purple-500/50 rounded-xl p-6 shadow-xl">
+            <Car className="text-purple-400 mb-3" size={28} />
+            <div className="text-3xl font-bold text-purple-400 mb-1">{totalAvailable}</div>
+            <div className="text-sm text-gray-300">Available Spots</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-pink-500/20 to-pink-600/20 border border-pink-500/50 rounded-xl p-6 shadow-xl">
+            <MapPin className="text-pink-400 mb-3" size={28} />
+            <div className="text-3xl font-bold text-pink-400 mb-1">{filteredLots.length}</div>
+            <div className="text-sm text-gray-300">Nearby Locations</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border border-cyan-500/50 rounded-xl p-6 shadow-xl">
+            <Navigation className="text-cyan-400 mb-3" size={28} />
+            <div className="text-3xl font-bold text-cyan-400 mb-1">{occupancyRate}%</div>
+            <div className="text-sm text-gray-300">Occupancy Rate</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-500/20 to-green-600/20 border border-green-500/50 rounded-xl p-6 shadow-xl">
+            <Zap className="text-green-400 mb-3" size={28} />
+            <div className="text-3xl font-bold text-green-400 mb-1">{parkingLots.reduce((sum, lot) => sum + lot.evCharging, 0)}</div>
+            <div className="text-sm text-gray-300">EV Charging Spots</div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 mb-6 shadow-xl border border-slate-700">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Search size={20} className="text-gray-400" />
+              <span className="text-sm text-gray-400">Filter by:</span>
+            </div>
+            
+            <div className="flex gap-2">
+              {['all', 'shopping', 'commercial', 'residential', 'transit'].map(type => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filterType === type
+                      ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30'
+                      : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                  }`}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 ml-auto">
+              <span className="text-sm text-gray-400">Radius:</span>
+              <input
+                type="range"
+                min="0.5"
+                max="5"
+                step="0.5"
+                value={searchRadius}
+                onChange={(e) => setSearchRadius(parseFloat(e.target.value))}
+                className="w-32"
+              />
+              <span className="text-sm font-medium text-white w-12">{searchRadius} km</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Parking Lots List */}
+          <div className="lg:col-span-2 space-y-4">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
+              <MapPin className="text-purple-400" size={28} />
+              Available Parking Locations
+            </h2>
+
+            {filteredLots.map(lot => (
+              <div
+                key={lot.id}
+                className={`bg-slate-800/50 backdrop-blur rounded-xl p-6 border transition-all shadow-lg ${
+                  selectedLot === lot.id
+                    ? 'border-purple-500 shadow-purple-500/30'
+                    : 'border-slate-700 hover:border-slate-600'
+                }`}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-xl text-white mb-1">{lot.name}</h3>
+                    <div className="flex items-center gap-3 text-sm text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <MapPin size={14} />
+                        {lot.distance} km away
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock size={14} />
+                        ~{Math.round(lot.distance * 3)} min drive
+                      </span>
+                      <span className="capitalize px-2 py-1 bg-slate-700 rounded text-xs">
+                        {lot.type}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedLot === lot.id && (
+                    <div className="bg-purple-500 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+                      <Navigation size={12} />
+                      <span>Active Route</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="bg-slate-700/50 rounded-lg p-3">
+                    <div className="text-xs text-gray-400 mb-1">Available</div>
+                    <div className={`text-2xl font-bold ${getAvailabilityColor(lot.available, lot.total)}`}>
+                      {lot.available}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-700/50 rounded-lg p-3">
+                    <div className="text-xs text-gray-400 mb-1">Total</div>
+                    <div className="text-2xl font-bold text-white">{lot.total}</div>
+                  </div>
+
+                  <div className="bg-slate-700/50 rounded-lg p-3">
+                    <div className="text-xs text-gray-400 mb-1">EV Charging</div>
+                    <div className="text-2xl font-bold text-green-400">{lot.evCharging}</div>
+                  </div>
+
+                  <div className="bg-slate-700/50 rounded-lg p-3">
+                    <div className="text-xs text-gray-400 mb-1">Hourly Rate</div>
+                    <div className="text-2xl font-bold text-cyan-400">${lot.rates.hourly}</div>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Occupancy</span>
+                    <span>{Math.round(((lot.total - lot.available) / lot.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${getStatusColor(lot.available, lot.total)}`}
+                      style={{ width: `${((lot.total - lot.available) / lot.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {lot.amenities.map(amenity => (
+                    <span key={amenity} className="text-xs bg-slate-700 px-3 py-1 rounded-full text-gray-300">
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+
+                {lot.available < 10 && lot.available > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-orange-400 bg-orange-500/10 p-2 rounded mb-4 border border-orange-500/30">
+                    <AlertCircle size={14} />
+                    <span>Limited availability! Only {lot.available} spots remaining</span>
+                  </div>
+                )}
+
+                {lot.available === 0 && (
+                  <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 p-2 rounded mb-4 border border-red-500/30">
+                    <AlertCircle size={14} />
+                    <span>Full - Avg exit time: {lot.avgExitTime} min</span>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleNavigate(lot)}
+                    disabled={lot.available === 0}
+                    className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                      lot.available === 0
+                        ? 'bg-slate-700 text-gray-500 cursor-not-allowed'
+                        : 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    }`}
+                  >
+                    <Navigation size={18} />
+                    Navigate
+                  </button>
+
+                  <button
+                    onClick={() => handleReserve(lot.id)}
+                    disabled={lot.available === 0}
+                    className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                      lot.available === 0
+                        ? 'bg-slate-700 text-gray-500 cursor-not-allowed'
+                        : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
+                    }`}
+                  >
+                    <CheckCircle size={18} />
+                    Reserve Spot
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Route Guidance Panel */}
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
+              <Navigation className="text-cyan-400" size={28} />
+              Navigation
+            </h2>
+
+            {route ? (
+              <div className="bg-gradient-to-br from-purple-500/20 to-cyan-500/20 border border-purple-500/50 rounded-xl p-6 shadow-xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <CheckCircle className="text-green-400" size={24} />
+                  <h3 className="text-xl font-bold text-white">Route Active</h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-sm text-gray-400 mb-1">Destination</div>
+                    <div className="text-lg font-bold text-white">{route.destination}</div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">Distance</div>
+                      <div className="text-xl font-bold text-purple-400">{route.distance} km</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">ETA</div>
+                      <div className="text-xl font-bold text-cyan-400">{route.eta} min</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-gray-400 mb-2">Turn-by-turn</div>
+                    <div className="space-y-2">
+                      {route.steps.map((step, idx) => (
+                        <div key={idx} className="flex items-start gap-3 bg-slate-800/50 p-3 rounded-lg">
+                          <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            {idx + 1}
+                          </div>
+                          <div className="text-sm text-gray-300">{step}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setRoute(null);
+                      setSelectedLot(null);
+                    }}
+                    className="w-full px-4 py-3 bg-red-500 hover:bg-red-600 rounded-lg font-semibold transition-all"
+                  >
+                    Cancel Navigation
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-800/50 backdrop-blur rounded-xl p-8 text-center border border-slate-700">
+                <Navigation className="mx-auto mb-4 text-gray-500" size={48} />
+                <p className="text-gray-400 mb-2">No active route</p>
+                <p className="text-sm text-gray-500">Select a parking lot to start navigation</p>
+              </div>
+            )}
+
+            {/* Quick Info */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                <Info className="text-cyan-400" size={20} />
+                System Features
+              </h3>
+              <div className="space-y-3 text-sm text-gray-300">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="text-green-400 flex-shrink-0 mt-0.5" size={16} />
+                  <span>Real-time spot availability tracking</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="text-green-400 flex-shrink-0 mt-0.5" size={16} />
+                  <span>Smart routing to nearest spots</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="text-green-400 flex-shrink-0 mt-0.5" size={16} />
+                  <span>Reserve parking in advance</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="text-green-400 flex-shrink-0 mt-0.5" size={16} />
+                  <span>EV charging station finder</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="text-green-400 flex-shrink-0 mt-0.5" size={16} />
+                  <span>Dynamic pricing information</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
