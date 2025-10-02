@@ -81,29 +81,6 @@ We believe that the best way to learn programming is through practical, project-
 - ✅ **Learning Focused** - Each project teaches specific concepts
 - ✅ **Scalable Code** - Clean, maintainable, and well-documented
 - ✅ **Regular Updates** - Continuously adding new projects
-## 🛠️ Technologies Used
-
-### Frontend
-- React.js
-- HTML5, CSS3, JavaScript
-- Tailwind CSS
-- Bootstrap
-
-### Backend
-- Node.js
-- Express.js
-- Python
-- Flask/Django
-
-### Database
-- MongoDB
-- MySQL
-- Firebase
-
-### IoT & Hardware
-- Arduino
-- Raspberry Pi
-- Sensors (Temperature, Humidity, Air Quality)
 
 ## Future Scope
 
