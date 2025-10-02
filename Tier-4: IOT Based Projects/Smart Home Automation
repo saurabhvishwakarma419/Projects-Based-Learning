@@ -1,1 +1,815 @@
+import React, { useState } from 'react';
+import { Power, Lightbulb, Thermometer, Lock, Camera, Droplets, Wind, Sun, Moon, Settings, Home, Zap } from 'lucide-react';
 
+const SmartHomeAutomation = () => {
+  const [devices, setDevices] = useState({
+    lights: {
+      living: { on: false, brightness: 75, color: '#FFE5B4' },
+      bedroom: { on: true, brightness: 50, color: '#FFD700' },
+      kitchen: { on: false, brightness: 100, color: '#FFFFFF' }
+    },
+    thermostat: { temp: 72, mode: 'auto', on: true },
+    locks: { front: true, back: true, garage: false },
+    cameras: { front: true, back: true, garage: false },
+    irrigation: { on: false, schedule: '6:00 AM' },
+    fans: { living: false, bedroom: true, speed: 2 }
+  });
+
+  const [activeRoom, setActiveRoom] = useState('living');
+  const [darkMode, setDarkMode] = useState(false);
+
+  const toggleDevice = (category, device, property = 'on') => {
+    setDevices(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [device]: {
+          ...prev[category][device],
+          [property]: !prev[category][device][property]
+        }
+      }
+    }));
+  };
+
+  const updateDevice = (category, device, property, value) => {
+    setDevices(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [device]: {
+          ...prev[category][device],
+          [property]: value
+        }
+      }
+    }));
+  };
+
+  const updateThermostat = (property, value) => {
+    setDevices(prev => ({
+      ...prev,
+      thermostat: { ...prev.thermostat, [property]: value }
+    }));
+  };
+
+  const rooms = ['living', 'bedroom', 'kitchen'];
+  const lightCount = Object.values(devices.lights).filter(l => l.on).length;
+  const lockCount = Object.values(devices.locks).filter(l => l).length;
+  const cameraCount = Object.values(devices.cameras).filter(c => c).length;
+
+  return (
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'} transition-colors duration-300`}>
+      {/* Header */}
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Home className={`w-8 h-8 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              <div>
+                <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Smart Home</h1>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Control Center</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 text-yellow-400' : 'bg-gray-100 text-gray-600'} hover:scale-110 transition-transform`}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+              <Settings className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'} cursor-pointer hover:rotate-45 transition-transform`} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Lights On</p>
+                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mt-1`}>{lightCount}</p>
+              </div>
+              <Lightbulb className={`w-12 h-12 ${lightCount > 0 ? 'text-yellow-400' : darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+            </div>
+          </div>
+          
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Temperature</p>
+                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mt-1`}>{devices.thermostat.temp}°F</p>
+              </div>
+              <Thermometer className="w-12 h-12 text-red-400" />
+            </div>
+          </div>
+
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Locks Secured</p>
+                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mt-1`}>{lockCount}/3</p>
+              </div>
+              <Lock className={`w-12 h-12 ${lockCount === 3 ? 'text-green-500' : 'text-orange-400'}`} />
+            </div>
+          </div>
+
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cameras Active</p>
+                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mt-1`}>{cameraCount}/3</p>
+              </div>
+              <Camera className="w-12 h-12 text-blue-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* Room Selector */}
+        <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
+          {rooms.map(room => (
+            <button
+              key={room}
+              onClick={() => setActiveRoom(room)}
+              className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
+                activeRoom === room
+                  ? darkMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-blue-500 text-white shadow-lg'
+                  : darkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {room.charAt(0).toUpperCase() + room.slice(1)} Room
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Lighting Control */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
+            <div className="flex items-center gap-3 mb-6">
+              <Lightbulb className={`w-6 h-6 ${devices.lights[activeRoom].on ? 'text-yellow-400' : darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Lighting</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Power</span>
+                <button
+                  onClick={() => toggleDevice('lights', activeRoom)}
+                  className={`relative w-16 h-8 rounded-full transition-colors ${
+                    devices.lights[activeRoom].on ? 'bg-blue-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                  }`}
+                >
+                  <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                    devices.lights[activeRoom].on ? 'translate-x-8' : ''
+                  }`} />
+                </button>
+              </div>
+
+              {devices.lights[activeRoom].on && (
+                <>
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Brightness</span>
+                      <span className={`font-medium ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                        {devices.lights[activeRoom].brightness}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={devices.lights[activeRoom].brightness}
+                      onChange={(e) => updateDevice('lights', activeRoom, 'brightness', parseInt(e.target.value))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                  </div>
+
+                  <div>
+                    <span className={`block mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Color</span>
+                    <div className="flex gap-2">
+                      {['#FFFFFF', '#FFE5B4', '#FFD700', '#FFA500', '#FF69B4', '#87CEEB'].map(color => (
+                        <button
+                          key={color}
+                          onClick={() => updateDevice('lights', activeRoom, 'color', color)}
+                          className={`w-10 h-10 rounded-full border-4 transition-transform hover:scale-110 ${
+                            devices.lights[activeRoom].color === color ? 'border-blue-500' : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Climate Control */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
+            <div className="flex items-center gap-3 mb-6">
+              <Thermometer className="w-6 h-6 text-red-400" />
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Climate Control</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Thermostat</span>
+                <button
+                  onClick={() => updateThermostat('on', !devices.thermostat.on)}
+                  className={`relative w-16 h-8 rounded-full transition-colors ${
+                    devices.thermostat.on ? 'bg-blue-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                  }`}
+                >
+                  <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                    devices.thermostat.on ? 'translate-x-8' : ''
+                  }`} />
+                </button>
+              </div>
+
+              {devices.thermostat.on && (
+                <>
+                  <div className="flex items-center justify-center gap-4 py-6">
+                    <button
+                      onClick={() => updateThermostat('temp', Math.max(60, devices.thermostat.temp - 1))}
+                      className={`w-12 h-12 rounded-full ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800'} text-2xl font-bold hover:scale-110 transition-transform`}
+                    >
+                      -
+                    </button>
+                    <div className="text-center">
+                      <div className={`text-5xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        {devices.thermostat.temp}°
+                      </div>
+                      <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Target Temperature</div>
+                    </div>
+                    <button
+                      onClick={() => updateThermostat('temp', Math.min(85, devices.thermostat.temp + 1))}
+                      className={`w-12 h-12 rounded-full ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800'} text-2xl font-bold hover:scale-110 transition-transform`}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {['cool', 'heat', 'auto'].map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => updateThermostat('mode', mode)}
+                        className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+                          devices.thermostat.mode === mode
+                            ? 'bg-blue-500 text-white'
+                            : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Security */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
+            <div className="flex items-center gap-3 mb-6">
+              <Lock className="w-6 h-6 text-green-500" />
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Security</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {Object.entries(devices.locks).map(([location, locked]) => (
+                <div key={location} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Lock className={`w-5 h-5 ${locked ? 'text-green-500' : 'text-red-500'}`} />
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                      {location.charAt(0).toUpperCase() + location.slice(1)} Door
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => toggleDevice('locks', location)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      locked
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-red-500 text-white hover:bg-red-600'
+                    }`}
+                  >
+                    {locked ? 'Locked' : 'Unlocked'}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h4 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Cameras</h4>
+              <div className="space-y-3">
+                {Object.entries(devices.cameras).map(([location, active]) => (
+                  <div key={location} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Camera className={`w-5 h-5 ${active ? 'text-blue-500' : darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                      <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                        {location.charAt(0).toUpperCase() + location.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {active && <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
+                      <button
+                        onClick={() => toggleDevice('cameras', location)}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${
+                          active ? 'bg-blue-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                        }`}
+                      >
+                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                          active ? 'translate-x-6' : ''
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Controls */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
+            <div className="flex items-center gap-3 mb-6">
+              <Zap className="w-6 h-6 text-purple-500" />
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Other Devices</h3>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Irrigation */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Droplets className={`w-5 h-5 ${devices.irrigation.on ? 'text-blue-500' : darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Garden Irrigation</span>
+                  </div>
+                  <button
+                    onClick={() => toggleDevice('irrigation', 'on')}
+                    className={`relative w-16 h-8 rounded-full transition-colors ${
+                      devices.irrigation.on ? 'bg-blue-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                      devices.irrigation.on ? 'translate-x-8' : ''
+                    }`} />
+                  </button>
+                </div>
+                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Scheduled: {devices.irrigation.schedule}
+                </div>
+              </div>
+
+              {/* Fans */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Wind className={`w-5 h-5 ${devices.fans[activeRoom] ? 'text-cyan-500' : darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Ceiling Fan</span>
+                  </div>
+                  <button
+                    onClick={() => toggleDevice('fans', activeRoom)}
+                    className={`relative w-16 h-8 rounded-full transition-colors ${
+                      devices.fans[activeRoom] ? 'bg-cyan-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                      devices.fans[activeRoom] ? 'translate-x-8' : ''
+                    }`} />
+                  </button>
+                </div>
+                {devices.fans[activeRoom] && (
+                  <div className="flex gap-2">
+                    {[1, 2, 3].map(speed => (
+                      <button
+                        key={speed}
+                        onClick={() => updateDevice('fans', activeRoom, 'speed', speed)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                          devices.fans.speed === speed
+                            ? 'bg-cyan-500 text-white'
+                            : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        Speed {speed}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SmartHomeAutomation;import React, { useState } from 'react';
+import { Power, Lightbulb, Thermometer, Lock, Camera, Droplets, Wind, Sun, Moon, Settings, Home, Zap } from 'lucide-react';
+
+const SmartHomeAutomation = () => {
+  const [devices, setDevices] = useState({
+    lights: {
+      living: { on: false, brightness: 75, color: '#FFE5B4' },
+      bedroom: { on: true, brightness: 50, color: '#FFD700' },
+      kitchen: { on: false, brightness: 100, color: '#FFFFFF' }
+    },
+    thermostat: { temp: 72, mode: 'auto', on: true },
+    locks: { front: true, back: true, garage: false },
+    cameras: { front: true, back: true, garage: false },
+    irrigation: { on: false, schedule: '6:00 AM' },
+    fans: { living: false, bedroom: true, speed: 2 }
+  });
+
+  const [activeRoom, setActiveRoom] = useState('living');
+  const [darkMode, setDarkMode] = useState(false);
+
+  const toggleDevice = (category, device, property = 'on') => {
+    setDevices(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [device]: {
+          ...prev[category][device],
+          [property]: !prev[category][device][property]
+        }
+      }
+    }));
+  };
+
+  const updateDevice = (category, device, property, value) => {
+    setDevices(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [device]: {
+          ...prev[category][device],
+          [property]: value
+        }
+      }
+    }));
+  };
+
+  const updateThermostat = (property, value) => {
+    setDevices(prev => ({
+      ...prev,
+      thermostat: { ...prev.thermostat, [property]: value }
+    }));
+  };
+
+  const rooms = ['living', 'bedroom', 'kitchen'];
+  const lightCount = Object.values(devices.lights).filter(l => l.on).length;
+  const lockCount = Object.values(devices.locks).filter(l => l).length;
+  const cameraCount = Object.values(devices.cameras).filter(c => c).length;
+
+  return (
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'} transition-colors duration-300`}>
+      {/* Header */}
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Home className={`w-8 h-8 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              <div>
+                <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Smart Home</h1>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Control Center</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 text-yellow-400' : 'bg-gray-100 text-gray-600'} hover:scale-110 transition-transform`}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+              <Settings className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'} cursor-pointer hover:rotate-45 transition-transform`} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Lights On</p>
+                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mt-1`}>{lightCount}</p>
+              </div>
+              <Lightbulb className={`w-12 h-12 ${lightCount > 0 ? 'text-yellow-400' : darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+            </div>
+          </div>
+          
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Temperature</p>
+                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mt-1`}>{devices.thermostat.temp}°F</p>
+              </div>
+              <Thermometer className="w-12 h-12 text-red-400" />
+            </div>
+          </div>
+
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Locks Secured</p>
+                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mt-1`}>{lockCount}/3</p>
+              </div>
+              <Lock className={`w-12 h-12 ${lockCount === 3 ? 'text-green-500' : 'text-orange-400'}`} />
+            </div>
+          </div>
+
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cameras Active</p>
+                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mt-1`}>{cameraCount}/3</p>
+              </div>
+              <Camera className="w-12 h-12 text-blue-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* Room Selector */}
+        <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
+          {rooms.map(room => (
+            <button
+              key={room}
+              onClick={() => setActiveRoom(room)}
+              className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
+                activeRoom === room
+                  ? darkMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-blue-500 text-white shadow-lg'
+                  : darkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {room.charAt(0).toUpperCase() + room.slice(1)} Room
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Lighting Control */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
+            <div className="flex items-center gap-3 mb-6">
+              <Lightbulb className={`w-6 h-6 ${devices.lights[activeRoom].on ? 'text-yellow-400' : darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Lighting</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Power</span>
+                <button
+                  onClick={() => toggleDevice('lights', activeRoom)}
+                  className={`relative w-16 h-8 rounded-full transition-colors ${
+                    devices.lights[activeRoom].on ? 'bg-blue-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                  }`}
+                >
+                  <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                    devices.lights[activeRoom].on ? 'translate-x-8' : ''
+                  }`} />
+                </button>
+              </div>
+
+              {devices.lights[activeRoom].on && (
+                <>
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Brightness</span>
+                      <span className={`font-medium ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                        {devices.lights[activeRoom].brightness}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={devices.lights[activeRoom].brightness}
+                      onChange={(e) => updateDevice('lights', activeRoom, 'brightness', parseInt(e.target.value))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                  </div>
+
+                  <div>
+                    <span className={`block mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Color</span>
+                    <div className="flex gap-2">
+                      {['#FFFFFF', '#FFE5B4', '#FFD700', '#FFA500', '#FF69B4', '#87CEEB'].map(color => (
+                        <button
+                          key={color}
+                          onClick={() => updateDevice('lights', activeRoom, 'color', color)}
+                          className={`w-10 h-10 rounded-full border-4 transition-transform hover:scale-110 ${
+                            devices.lights[activeRoom].color === color ? 'border-blue-500' : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Climate Control */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
+            <div className="flex items-center gap-3 mb-6">
+              <Thermometer className="w-6 h-6 text-red-400" />
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Climate Control</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Thermostat</span>
+                <button
+                  onClick={() => updateThermostat('on', !devices.thermostat.on)}
+                  className={`relative w-16 h-8 rounded-full transition-colors ${
+                    devices.thermostat.on ? 'bg-blue-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                  }`}
+                >
+                  <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                    devices.thermostat.on ? 'translate-x-8' : ''
+                  }`} />
+                </button>
+              </div>
+
+              {devices.thermostat.on && (
+                <>
+                  <div className="flex items-center justify-center gap-4 py-6">
+                    <button
+                      onClick={() => updateThermostat('temp', Math.max(60, devices.thermostat.temp - 1))}
+                      className={`w-12 h-12 rounded-full ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800'} text-2xl font-bold hover:scale-110 transition-transform`}
+                    >
+                      -
+                    </button>
+                    <div className="text-center">
+                      <div className={`text-5xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        {devices.thermostat.temp}°
+                      </div>
+                      <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Target Temperature</div>
+                    </div>
+                    <button
+                      onClick={() => updateThermostat('temp', Math.min(85, devices.thermostat.temp + 1))}
+                      className={`w-12 h-12 rounded-full ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800'} text-2xl font-bold hover:scale-110 transition-transform`}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {['cool', 'heat', 'auto'].map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => updateThermostat('mode', mode)}
+                        className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+                          devices.thermostat.mode === mode
+                            ? 'bg-blue-500 text-white'
+                            : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Security */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
+            <div className="flex items-center gap-3 mb-6">
+              <Lock className="w-6 h-6 text-green-500" />
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Security</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {Object.entries(devices.locks).map(([location, locked]) => (
+                <div key={location} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Lock className={`w-5 h-5 ${locked ? 'text-green-500' : 'text-red-500'}`} />
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                      {location.charAt(0).toUpperCase() + location.slice(1)} Door
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => toggleDevice('locks', location)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      locked
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-red-500 text-white hover:bg-red-600'
+                    }`}
+                  >
+                    {locked ? 'Locked' : 'Unlocked'}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h4 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Cameras</h4>
+              <div className="space-y-3">
+                {Object.entries(devices.cameras).map(([location, active]) => (
+                  <div key={location} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Camera className={`w-5 h-5 ${active ? 'text-blue-500' : darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                      <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                        {location.charAt(0).toUpperCase() + location.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {active && <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
+                      <button
+                        onClick={() => toggleDevice('cameras', location)}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${
+                          active ? 'bg-blue-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                        }`}
+                      >
+                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                          active ? 'translate-x-6' : ''
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Controls */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
+            <div className="flex items-center gap-3 mb-6">
+              <Zap className="w-6 h-6 text-purple-500" />
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Other Devices</h3>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Irrigation */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Droplets className={`w-5 h-5 ${devices.irrigation.on ? 'text-blue-500' : darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Garden Irrigation</span>
+                  </div>
+                  <button
+                    onClick={() => toggleDevice('irrigation', 'on')}
+                    className={`relative w-16 h-8 rounded-full transition-colors ${
+                      devices.irrigation.on ? 'bg-blue-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                      devices.irrigation.on ? 'translate-x-8' : ''
+                    }`} />
+                  </button>
+                </div>
+                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Scheduled: {devices.irrigation.schedule}
+                </div>
+              </div>
+
+              {/* Fans */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Wind className={`w-5 h-5 ${devices.fans[activeRoom] ? 'text-cyan-500' : darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Ceiling Fan</span>
+                  </div>
+                  <button
+                    onClick={() => toggleDevice('fans', activeRoom)}
+                    className={`relative w-16 h-8 rounded-full transition-colors ${
+                      devices.fans[activeRoom] ? 'bg-cyan-500' : darkMode ? 'bg-gray-700' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                      devices.fans[activeRoom] ? 'translate-x-8' : ''
+                    }`} />
+                  </button>
+                </div>
+                {devices.fans[activeRoom] && (
+                  <div className="flex gap-2">
+                    {[1, 2, 3].map(speed => (
+                      <button
+                        key={speed}
+                        onClick={() => updateDevice('fans', activeRoom, 'speed', speed)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                          devices.fans.speed === speed
+                            ? 'bg-cyan-500 text-white'
+                            : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        Speed {speed}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SmartHomeAutomation;
