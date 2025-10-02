@@ -1,1 +1,418 @@
+import React, { useState, useEffect } from 'react';
+import { Droplets, Thermometer, Wind, Sun, Cloud, AlertTriangle, TrendingUp, TrendingDown, Leaf, Sprout, Activity, MapPin, Calendar, Clock, CloudRain, Eye } from 'lucide-react';
 
+const AgricultureMonitoring = () => {
+  const [selectedField, setSelectedField] = useState('field1');
+  const [timeRange, setTimeRange] = useState('24h');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+
+  // Simulate real-time data updates
+  useEffect(() => {
+    if (!autoRefresh) return;
+    
+    const interval = setInterval(() => {
+      setLastUpdate(new Date());
+      // In a real app, this would fetch new data from sensors
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh]);
+
+  const fields = {
+    field1: {
+      name: 'North Field',
+      crop: 'Wheat',
+      area: '50 acres',
+      planted: '2025-03-15',
+      location: '40.7128°N, 74.0060°W',
+      sensors: {
+        soilMoisture: { value: 68, status: 'optimal', unit: '%' },
+        soilTemp: { value: 22, status: 'optimal', unit: '°C' },
+        soilPH: { value: 6.8, status: 'optimal', unit: 'pH' },
+        soilNitrogen: { value: 45, status: 'good', unit: 'ppm' },
+        airTemp: { value: 24, status: 'optimal', unit: '°C' },
+        humidity: { value: 72, status: 'optimal', unit: '%' },
+        windSpeed: { value: 12, status: 'good', unit: 'km/h' },
+        rainfall: { value: 2.4, status: 'good', unit: 'mm' },
+        sunlight: { value: 85, status: 'optimal', unit: '%' },
+        leafWetness: { value: 15, status: 'good', unit: '%' }
+      },
+      growthStage: 'Vegetative',
+      health: 92,
+      irrigation: { status: 'scheduled', nextRun: '6:00 AM', duration: '45 min' },
+      alerts: []
+    },
+    field2: {
+      name: 'South Field',
+      crop: 'Corn',
+      area: '75 acres',
+      planted: '2025-04-01',
+      location: '40.7138°N, 74.0070°W',
+      sensors: {
+        soilMoisture: { value: 45, status: 'low', unit: '%' },
+        soilTemp: { value: 25, status: 'optimal', unit: '°C' },
+        soilPH: { value: 6.2, status: 'optimal', unit: 'pH' },
+        soilNitrogen: { value: 32, status: 'low', unit: 'ppm' },
+        airTemp: { value: 26, status: 'good', unit: '°C' },
+        humidity: { value: 65, status: 'good', unit: '%' },
+        windSpeed: { value: 18, status: 'moderate', unit: 'km/h' },
+        rainfall: { value: 0.8, status: 'low', unit: 'mm' },
+        sunlight: { value: 92, status: 'optimal', unit: '%' },
+        leafWetness: { value: 8, status: 'optimal', unit: '%' }
+      },
+      growthStage: 'Early Flowering',
+      health: 78,
+      irrigation: { status: 'active', nextRun: 'Running', duration: '30 min' },
+      alerts: [
+        { type: 'warning', message: 'Soil moisture below optimal level', priority: 'medium' },
+        { type: 'info', message: 'Consider nitrogen fertilizer application', priority: 'low' }
+      ]
+    },
+    field3: {
+      name: 'East Field',
+      crop: 'Soybeans',
+      area: '60 acres',
+      planted: '2025-03-20',
+      location: '40.7118°N, 74.0050°W',
+      sensors: {
+        soilMoisture: { value: 82, status: 'high', unit: '%' },
+        soilTemp: { value: 21, status: 'optimal', unit: '°C' },
+        soilPH: { value: 7.2, status: 'good', unit: 'pH' },
+        soilNitrogen: { value: 55, status: 'optimal', unit: 'ppm' },
+        airTemp: { value: 23, status: 'optimal', unit: '°C' },
+        humidity: { value: 78, status: 'good', unit: '%' },
+        windSpeed: { value: 8, status: 'optimal', unit: 'km/h' },
+        rainfall: { value: 5.2, status: 'high', unit: 'mm' },
+        sunlight: { value: 75, status: 'good', unit: '%' },
+        leafWetness: { value: 35, status: 'high', unit: '%' }
+      },
+      growthStage: 'Vegetative',
+      health: 88,
+      irrigation: { status: 'paused', nextRun: 'Paused', duration: '0 min' },
+      alerts: [
+        { type: 'warning', message: 'High soil moisture detected - irrigation paused', priority: 'medium' },
+        { type: 'caution', message: 'Monitor for potential fungal disease due to leaf wetness', priority: 'high' }
+      ]
+    }
+  };
+
+  const field = fields[selectedField];
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'optimal': return 'text-green-500 bg-green-50';
+      case 'good': return 'text-blue-500 bg-blue-50';
+      case 'moderate': return 'text-yellow-500 bg-yellow-50';
+      case 'low': return 'text-orange-500 bg-orange-50';
+      case 'high': return 'text-purple-500 bg-purple-50';
+      default: return 'text-gray-500 bg-gray-50';
+    }
+  };
+
+  const getAlertColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'border-red-500 bg-red-50';
+      case 'medium': return 'border-orange-500 bg-orange-50';
+      case 'low': return 'border-blue-500 bg-blue-50';
+      default: return 'border-gray-500 bg-gray-50';
+    }
+  };
+
+  const getHealthColor = (health) => {
+    if (health >= 90) return 'text-green-600';
+    if (health >= 75) return 'text-blue-600';
+    if (health >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const SensorCard = ({ icon: Icon, label, value, unit, status }) => (
+    <div className="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-shadow border border-gray-100">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Icon className="w-5 h-5 text-gray-600" />
+          <span className="text-sm font-medium text-gray-700">{label}</span>
+        </div>
+        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(status)}`}>
+          {status}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-3xl font-bold text-gray-800">{value}</span>
+        <span className="text-sm text-gray-500">{unit}</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      {/* Header */}
+      <div className="bg-white shadow-lg border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Leaf className="w-8 h-8 text-green-600" />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">AgriMonitor</h1>
+                <p className="text-sm text-gray-500">Smart Agriculture Monitoring System</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <div className="text-xs text-gray-500">Last Updated</div>
+                <div className="text-sm font-medium text-gray-700">
+                  {lastUpdate.toLocaleTimeString()}
+                </div>
+              </div>
+              <button
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  autoRefresh
+                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {autoRefresh ? 'Auto-Refresh On' : 'Auto-Refresh Off'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Field Selector */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {Object.entries(fields).map(([key, f]) => (
+            <button
+              key={key}
+              onClick={() => setSelectedField(key)}
+              className={`text-left p-5 rounded-xl transition-all ${
+                selectedField === key
+                  ? 'bg-green-500 text-white shadow-xl scale-105'
+                  : 'bg-white text-gray-700 hover:shadow-lg hover:scale-102 shadow-md'
+              }`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <h3 className="font-bold text-lg">{f.name}</h3>
+                  <p className={`text-sm ${selectedField === key ? 'text-green-100' : 'text-gray-500'}`}>
+                    {f.crop} • {f.area}
+                  </p>
+                </div>
+                <Sprout className={`w-6 h-6 ${selectedField === key ? 'text-white' : 'text-green-600'}`} />
+              </div>
+              <div className="flex items-center gap-4 mt-3">
+                <div className={`text-2xl font-bold ${getHealthColor(f.health)}`}>
+                  {f.health}%
+                </div>
+                <span className={`text-xs ${selectedField === key ? 'text-green-100' : 'text-gray-500'}`}>
+                  Health Score
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Alerts Section */}
+        {field.alerts.length > 0 && (
+          <div className="mb-8 space-y-3">
+            {field.alerts.map((alert, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start gap-3 p-4 rounded-lg border-l-4 ${getAlertColor(alert.priority)}`}
+              >
+                <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold text-gray-800">{alert.type.toUpperCase()}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-white font-medium">
+                      {alert.priority} priority
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-700">{alert.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Field Details */}
+        <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                <MapPin className="w-4 h-4" />
+                <span className="text-sm font-medium">Location</span>
+              </div>
+              <p className="text-gray-800 font-mono text-sm">{field.location}</p>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                <Calendar className="w-4 h-4" />
+                <span className="text-sm font-medium">Planted</span>
+              </div>
+              <p className="text-gray-800">{new Date(field.planted).toLocaleDateString()}</p>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                <Activity className="w-4 h-4" />
+                <span className="text-sm font-medium">Growth Stage</span>
+              </div>
+              <p className="text-gray-800 font-semibold">{field.growthStage}</p>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                <Droplets className="w-4 h-4" />
+                <span className="text-sm font-medium">Irrigation</span>
+              </div>
+              <p className={`font-semibold ${
+                field.irrigation.status === 'active' ? 'text-blue-600' :
+                field.irrigation.status === 'scheduled' ? 'text-green-600' :
+                'text-gray-600'
+              }`}>
+                {field.irrigation.status.toUpperCase()}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Next: {field.irrigation.nextRun} ({field.irrigation.duration})
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Soil Conditions */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Leaf className="w-6 h-6 text-green-600" />
+            Soil Conditions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <SensorCard
+              icon={Droplets}
+              label="Soil Moisture"
+              value={field.sensors.soilMoisture.value}
+              unit={field.sensors.soilMoisture.unit}
+              status={field.sensors.soilMoisture.status}
+            />
+            <SensorCard
+              icon={Thermometer}
+              label="Soil Temperature"
+              value={field.sensors.soilTemp.value}
+              unit={field.sensors.soilTemp.unit}
+              status={field.sensors.soilTemp.status}
+            />
+            <SensorCard
+              icon={Activity}
+              label="Soil pH"
+              value={field.sensors.soilPH.value}
+              unit={field.sensors.soilPH.unit}
+              status={field.sensors.soilPH.status}
+            />
+            <SensorCard
+              icon={Sprout}
+              label="Nitrogen (N)"
+              value={field.sensors.soilNitrogen.value}
+              unit={field.sensors.soilNitrogen.unit}
+              status={field.sensors.soilNitrogen.status}
+            />
+          </div>
+        </div>
+
+        {/* Environmental Conditions */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Cloud className="w-6 h-6 text-blue-600" />
+            Environmental Conditions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <SensorCard
+              icon={Thermometer}
+              label="Air Temperature"
+              value={field.sensors.airTemp.value}
+              unit={field.sensors.airTemp.unit}
+              status={field.sensors.airTemp.status}
+            />
+            <SensorCard
+              icon={Droplets}
+              label="Humidity"
+              value={field.sensors.humidity.value}
+              unit={field.sensors.humidity.unit}
+              status={field.sensors.humidity.status}
+            />
+            <SensorCard
+              icon={Wind}
+              label="Wind Speed"
+              value={field.sensors.windSpeed.value}
+              unit={field.sensors.windSpeed.unit}
+              status={field.sensors.windSpeed.status}
+            />
+            <SensorCard
+              icon={CloudRain}
+              label="Rainfall (24h)"
+              value={field.sensors.rainfall.value}
+              unit={field.sensors.rainfall.unit}
+              status={field.sensors.rainfall.status}
+            />
+            <SensorCard
+              icon={Sun}
+              label="Sunlight"
+              value={field.sensors.sunlight.value}
+              unit={field.sensors.sunlight.unit}
+              status={field.sensors.sunlight.status}
+            />
+            <SensorCard
+              icon={Eye}
+              label="Leaf Wetness"
+              value={field.sensors.leafWetness.value}
+              unit={field.sensors.leafWetness.unit}
+              status={field.sensors.leafWetness.status}
+            />
+          </div>
+        </div>
+
+        {/* Recommendations */}
+        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <TrendingUp className="w-6 h-6" />
+            AI-Powered Recommendations
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
+              <h3 className="font-semibold mb-2">Irrigation Schedule</h3>
+              <p className="text-sm text-green-50">
+                {field.sensors.soilMoisture.status === 'low'
+                  ? 'Increase irrigation frequency. Soil moisture is below optimal levels.'
+                  : field.sensors.soilMoisture.status === 'high'
+                  ? 'Pause irrigation. Soil moisture is above optimal levels.'
+                  : 'Current irrigation schedule is optimal.'}
+              </p>
+            </div>
+            <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
+              <h3 className="font-semibold mb-2">Nutrient Management</h3>
+              <p className="text-sm text-green-50">
+                {field.sensors.soilNitrogen.status === 'low'
+                  ? 'Consider applying nitrogen fertilizer within the next week.'
+                  : 'Nutrient levels are adequate. Continue current fertilization plan.'}
+              </p>
+            </div>
+            <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
+              <h3 className="font-semibold mb-2">Disease Risk</h3>
+              <p className="text-sm text-green-50">
+                {field.sensors.leafWetness.value > 30
+                  ? 'High leaf wetness detected. Monitor for fungal diseases. Consider preventive fungicide application.'
+                  : 'Disease risk is currently low. Continue regular monitoring.'}
+              </p>
+            </div>
+            <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
+              <h3 className="font-semibold mb-2">Growth Outlook</h3>
+              <p className="text-sm text-green-50">
+                Based on current conditions and growth stage, expect harvest in approximately 45-60 days.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AgricultureMonitoring;
