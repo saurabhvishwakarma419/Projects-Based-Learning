@@ -1,9 +1,7 @@
+<img width="1304" height="605" alt="Screenshot (80)" src="https://github.com/user-attachments/assets/0a645095-cdd8-4447-b6b4-8127ea32c803" />
 
-<img width="1000" height="576" alt="saurabh1" src="https://github.com/user-attachments/assets/1c91d78c-c9a2-4add-a600-77548c245de7" />
-
-
-
-![WhatsApp Image 2025-09-30 at 10 24 59 AM](https://github.com/user-attachments/assets/084a94b8-9b5d-4bec-b878-17b9b1828620)
+<img width="1314" height="618" alt="Screenshot (81)" src="https://github.com/user-attachments/assets/bec6677f-ef9d-4997-83e3-0e12796085ec" />
+<img width="1350" height="613" alt="Screenshot (82)" src="https://github.com/user-attachments/assets/ca7d1e01-c811-4b30-bcf9-fd90420a53a7" />
 
 
 
